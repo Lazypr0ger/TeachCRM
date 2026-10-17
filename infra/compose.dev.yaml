@@ -1,0 +1,85 @@
+name: tutor-crm
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: tutorcrm
+      POSTGRES_USER: tutorcrm
+      POSTGRES_PASSWORD: tutorcrm-dev-only
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tutorcrm -d tutorcrm"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  s3:
+    image: localstack/localstack:4.9.2
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: eu-central-1
+    volumes:
+      - s3-data:/var/lib/localstack
+      - ./localstack/init-s3.sh:/etc/localstack/init/ready.d/init-s3.sh:ro
+    ports:
+      - "127.0.0.1:4566:4566"
+
+  migrate:
+    build:
+      context: ../backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://tutorcrm:tutorcrm-dev-only@postgres:5432/tutorcrm
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ../backend
+    environment:
+      APP_ENV: development
+      APP_TIMEZONE: Europe/Moscow
+      DATABASE_URL: postgresql+psycopg://tutorcrm:tutorcrm-dev-only@postgres:5432/tutorcrm
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    build:
+      context: ../backend
+    environment:
+      APP_ENV: development
+      APP_TIMEZONE: Europe/Moscow
+      DATABASE_URL: postgresql+psycopg://tutorcrm:tutorcrm-dev-only@postgres:5432/tutorcrm
+    command: ["python", "-m", "app.workers.main"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ../frontend
+    environment:
+      NODE_ENV: production
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  s3-data:
+
