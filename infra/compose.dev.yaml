@@ -27,6 +27,11 @@ services:
       - ./localstack/init-s3.sh:/etc/localstack/init/ready.d/init-s3.sh:ro
     ports:
       - "127.0.0.1:4566:4566"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   migrate:
     build:
@@ -73,6 +78,7 @@ services:
       context: ../frontend
     environment:
       NODE_ENV: production
+      API_INTERNAL_URL: http://backend:8000
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:

@@ -1,0 +1,37 @@
+export type AuthUser = {
+  id: string;
+  role: "STUDENT" | "TEACHER";
+  login: string;
+  status: string;
+};
+
+type ApiError = { detail?: string };
+
+export async function postJson<T>(url: string, payload: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const result = (await response.json()) as T & ApiError;
+  if (!response.ok) {
+    throw new Error(result.detail ?? "Не удалось выполнить запрос");
+  }
+  return result;
+}
+
+function csrfToken(): string {
+  const match = document.cookie.match(/(?:^|; )tutorcrm_csrf=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+export async function postAuthenticated<T>(url: string, payload: unknown = {}): Promise<T> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
+    body: JSON.stringify(payload),
+  });
+  const result = (await response.json()) as T & ApiError;
+  if (!response.ok) throw new Error(result.detail ?? "Не удалось выполнить запрос");
+  return result;
+}

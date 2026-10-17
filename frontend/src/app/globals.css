@@ -30,3 +30,71 @@ a { color: inherit; }
 
 :focus-visible { outline: 3px solid var(--info); outline-offset: 3px; }
 
+.auth-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+}
+
+.auth-card {
+  width: min(100%, 440px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 28px;
+}
+
+.auth-card h1 { margin: 0; font-size: 28px; }
+.auth-card p { color: var(--text-muted); line-height: 1.6; }
+.auth-form { display: grid; gap: 16px; margin-top: 24px; }
+.auth-form label { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
+.auth-form input {
+  min-height: 46px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 10px 12px;
+  font: inherit;
+}
+.primary-button {
+  min-height: 46px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 16px;
+}
+.primary-button:hover { background: var(--accent-hover); }
+.primary-button:disabled { cursor: wait; opacity: .65; }
+.form-error { color: var(--danger) !important; }
+.form-success { color: var(--success) !important; }
+.text-link { color: var(--info); }
+
+.dashboard-shell {
+  display: grid;
+  grid-template-columns: minmax(280px, 440px) minmax(280px, 560px);
+  justify-content: center;
+  gap: 24px;
+  min-height: 100vh;
+  padding: 48px 24px;
+}
+
+.invitation-result {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+  overflow-wrap: anywhere;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+
+@media (max-width: 760px) {
+  .dashboard-shell { grid-template-columns: minmax(0, 440px); padding: 24px 16px; }
+}
+

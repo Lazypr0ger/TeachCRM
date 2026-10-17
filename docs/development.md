@@ -11,6 +11,12 @@ uv run mypy app
 uv run uvicorn app.main:app --reload
 ```
 
+В локальной среде пароль преподавателя создаётся интерактивно:
+
+```bash
+uv run python -m app.cli bootstrap-teacher --login teacher
+```
+
 ## Локальный frontend
 
 ```bash
