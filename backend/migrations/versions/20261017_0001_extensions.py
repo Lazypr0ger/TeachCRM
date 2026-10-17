@@ -17,4 +17,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Extensions may be shared by other schemas and are intentionally retained.
     pass
-

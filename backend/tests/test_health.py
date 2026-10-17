@@ -26,4 +26,3 @@ def test_ready_healthcheck(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ready", "service": "api"}
-
