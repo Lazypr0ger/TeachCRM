@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useState } from "react";
 import { postAuthenticated } from "@/lib/auth-api";
 
 type Invitation = {
@@ -10,6 +11,7 @@ type Invitation = {
 };
 
 export function InviteStudentForm() {
+  const router = useRouter();
   const [result, setResult] = useState<Invitation | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -30,6 +32,7 @@ export function InviteStudentForm() {
       });
       setResult(invitation);
       form.reset();
+      router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Не удалось создать приглашение");
     } finally {

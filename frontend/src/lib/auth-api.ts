@@ -26,8 +26,16 @@ function csrfToken(): string {
 }
 
 export async function postAuthenticated<T>(url: string, payload: unknown = {}): Promise<T> {
+  return authenticatedJson<T>(url, "POST", payload);
+}
+
+export async function authenticatedJson<T>(
+  url: string,
+  method: "POST" | "PATCH",
+  payload: unknown = {},
+): Promise<T> {
   const response = await fetch(url, {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
     body: JSON.stringify(payload),
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { type FormEvent, useState } from "react";
 import type { AuthUser } from "@/lib/auth-api";
 import { postJson } from "@/lib/auth-api";
 
