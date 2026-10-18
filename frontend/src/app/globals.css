@@ -133,10 +133,42 @@ a { color: inherit; }
 .status-suspended { background: color-mix(in srgb, var(--danger) 20%, transparent); color: var(--danger); }
 .muted-section { margin-top: 20px; color: var(--text-muted); }
 .pagination { display: flex; align-items: center; justify-content: space-between; margin: 0 0 20px; }
+.dashboard-links { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 8px 0 16px; }
+.dashboard-links .primary-link { margin: 0; }
+.dashboard-section { margin-top: 28px; }
+.dashboard-wide { grid-column: 1 / -1; }
+.schedule-filters { margin-top: 20px; }
+.compact-filters { grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto; }
+.lesson-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.lesson-form label { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
+.lesson-form input, .lesson-form select, .lesson-form textarea {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 10px 12px;
+  font: inherit;
+}
+.lesson-form textarea { resize: vertical; }
+.wide-field { grid-column: 1 / -1; }
+.lesson-list { display: grid; gap: 14px; margin: 20px 0; }
+.lesson-card { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); padding: 24px; }
+.lesson-card p { color: var(--text-muted); line-height: 1.55; }
+.lesson-card-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.lesson-card-heading h2 { margin: 0; }
+.eyebrow { margin: 0 0 6px; color: var(--info) !important; font-size: 13px; font-weight: 700; text-transform: uppercase; }
+.status-scheduled { background: color-mix(in srgb, var(--info) 20%, transparent); color: var(--info); }
+.status-completed { background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success); }
+.status-cancelled { background: color-mix(in srgb, var(--danger) 20%, transparent); color: var(--danger); }
 
 @media (max-width: 760px) {
   .dashboard-shell { grid-template-columns: minmax(0, 440px); padding: 24px 16px; }
   .management-shell { padding: 24px 16px; }
-  .filters-form, .student-row { grid-template-columns: 1fr; }
+  .filters-form, .student-row, .lesson-form { grid-template-columns: 1fr; }
+  .wide-field { grid-column: auto; }
+  .dashboard-wide { grid-column: auto; }
+  .lesson-card-heading { align-items: start; flex-direction: column; }
 }
 
