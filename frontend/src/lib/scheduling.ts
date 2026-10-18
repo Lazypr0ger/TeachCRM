@@ -54,6 +54,42 @@ export type RecurrenceRule = {
   materialized_count: number;
 };
 
+export type RescheduleStatus =
+  | "PENDING"
+  | "COUNTER_OFFER"
+  | "ACCEPTED"
+  | "REJECTED"
+  | "CANCELLED";
+
+export type RescheduleRequest = {
+  id: string;
+  lesson_id: string;
+  student_id: string;
+  student_name: string;
+  lesson_title: string;
+  original_starts_at: string;
+  original_ends_at: string;
+  proposed_starts_at: string;
+  proposed_ends_at: string;
+  reason: string | null;
+  status: RescheduleStatus;
+  counter_starts_at: string | null;
+  counter_ends_at: string | null;
+  response_note: string | null;
+  responded_at: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export const rescheduleStatus: Record<RescheduleStatus, string> = {
+  PENDING: "Ожидает решения",
+  COUNTER_OFFER: "Предложено другое время",
+  ACCEPTED: "Принят",
+  REJECTED: "Отклонён",
+  CANCELLED: "Отменён",
+};
+
 export const weekdays = [
   "Понедельник",
   "Вторник",

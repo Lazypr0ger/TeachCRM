@@ -208,6 +208,7 @@ def update_lesson(
     if lesson.version != payload.version:
         raise LessonVersionError("Урок уже изменён в другой вкладке")
     changes = payload.model_dump(exclude={"version"}, exclude_unset=True)
+    time_changed = "starts_at" in changes or "ends_at" in changes
     starts_at = normalize_datetime(changes.get("starts_at", lesson.starts_at))
     ends_at = normalize_datetime(changes.get("ends_at", lesson.ends_at))
     if ends_at <= starts_at:
@@ -242,6 +243,10 @@ def update_lesson(
     from app.modules.scheduling.recurrence_service import mark_occurrence_exception
 
     mark_occurrence_exception(db, lesson, RecurrenceExceptionAction.MODIFIED)
+    if time_changed:
+        from app.modules.scheduling.reschedule_service import cancel_active_for_lesson
+
+        cancel_active_for_lesson(db, lesson.id)
     try:
         add_audit(db, teacher.id, "LESSON_UPDATED", "lesson", lesson.id)
         db.commit()
@@ -261,6 +266,9 @@ def complete_lesson(db: Session, lesson_id: UUID, teacher: User) -> LessonRespon
     lesson.status = LessonStatus.COMPLETED
     lesson.completed_at = utc_now()
     lesson.version += 1
+    from app.modules.scheduling.reschedule_service import cancel_active_for_lesson
+
+    cancel_active_for_lesson(db, lesson.id)
     add_audit(db, teacher.id, "LESSON_COMPLETED", "lesson", lesson.id)
     db.commit()
     db.refresh(lesson)
@@ -279,6 +287,9 @@ def cancel_lesson(db: Session, lesson_id: UUID, teacher: User) -> LessonResponse
     from app.modules.scheduling.recurrence_service import mark_occurrence_exception
 
     mark_occurrence_exception(db, lesson, RecurrenceExceptionAction.CANCELLED)
+    from app.modules.scheduling.reschedule_service import cancel_active_for_lesson
+
+    cancel_active_for_lesson(db, lesson.id)
     add_audit(db, teacher.id, "LESSON_CANCELLED", "lesson", lesson.id)
     db.commit()
     db.refresh(lesson)

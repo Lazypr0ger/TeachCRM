@@ -181,6 +181,9 @@ a { color: inherit; }
 .availability-row span { display: grid; gap: 5px; }
 .availability-row small { color: var(--text-muted); }
 .availability-row .warning-text { color: var(--warning); }
+.request-card { display: grid; gap: 14px; border-top: 1px solid var(--border); padding-top: 16px; }
+.request-card p { color: var(--text-muted); line-height: 1.45; }
+.counter-form { margin-top: 16px; }
 
 @media (max-width: 760px) {
   .dashboard-shell { grid-template-columns: minmax(0, 440px); padding: 24px 16px; }

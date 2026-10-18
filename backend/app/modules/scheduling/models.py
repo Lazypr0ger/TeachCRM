@@ -151,3 +151,48 @@ class RecurrenceException(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     replacement_lesson_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("lessons.id", ondelete="SET NULL")
     )
+
+
+class RescheduleStatus:
+    PENDING = "PENDING"
+    COUNTER_OFFER = "COUNTER_OFFER"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    CANCELLED = "CANCELLED"
+
+
+class RescheduleRequest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "reschedule_requests"
+    __table_args__ = (
+        CheckConstraint(
+            "proposed_ends_at > proposed_starts_at", name="ck_reschedule_proposed_interval"
+        ),
+        CheckConstraint(
+            "counter_starts_at IS NULL OR counter_ends_at > counter_starts_at",
+            name="ck_reschedule_counter_interval",
+        ),
+        CheckConstraint(
+            "status IN ('PENDING', 'COUNTER_OFFER', 'ACCEPTED', 'REJECTED', 'CANCELLED')",
+            name="ck_reschedule_status",
+        ),
+        Index("ix_reschedule_student_created", "student_id", "created_at"),
+        Index("ix_reschedule_status_created", "status", "created_at"),
+    )
+
+    lesson_id: Mapped[UUID] = mapped_column(
+        ForeignKey("lessons.id", ondelete="CASCADE"), nullable=False
+    )
+    student_id: Mapped[UUID] = mapped_column(
+        ForeignKey("student_profiles.id", ondelete="CASCADE"), nullable=False
+    )
+    original_starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    original_ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    proposed_starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    proposed_ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text())
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    counter_starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    counter_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    response_note: Mapped[str | None] = mapped_column(Text())
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
