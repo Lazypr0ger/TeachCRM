@@ -12,6 +12,8 @@ from app.modules.auth.teacher_router import router as teacher_auth_router
 from app.modules.lessons.dashboard_router import router as teacher_dashboard_router
 from app.modules.lessons.student_router import router as student_lessons_router
 from app.modules.lessons.teacher_router import router as teacher_lessons_router
+from app.modules.scheduling.student_router import router as student_schedule_router
+from app.modules.scheduling.teacher_router import router as teacher_availability_router
 from app.modules.students.router import router as teacher_students_router
 
 
@@ -36,6 +38,8 @@ app.include_router(teacher_students_router)
 app.include_router(teacher_lessons_router)
 app.include_router(student_lessons_router)
 app.include_router(teacher_dashboard_router)
+app.include_router(teacher_availability_router)
+app.include_router(student_schedule_router)
 
 
 @app.get("/health/live", response_model=HealthResponse, tags=["health"])

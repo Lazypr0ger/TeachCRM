@@ -88,3 +88,12 @@ def require_teacher_csrf(user: CsrfUser) -> User:
 
 
 TeacherCsrfUser = Annotated[User, Depends(require_teacher_csrf)]
+
+
+def require_student_csrf(user: CsrfUser) -> User:
+    if user.role != UserRole.STUDENT:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Действие запрещено")
+    return user
+
+
+StudentCsrfUser = Annotated[User, Depends(require_student_csrf)]

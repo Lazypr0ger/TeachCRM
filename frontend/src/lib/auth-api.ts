@@ -31,14 +31,15 @@ export async function postAuthenticated<T>(url: string, payload: unknown = {}): 
 
 export async function authenticatedJson<T>(
   url: string,
-  method: "POST" | "PATCH",
-  payload: unknown = {},
+  method: "POST" | "PATCH" | "DELETE",
+  payload?: unknown,
 ): Promise<T> {
   const response = await fetch(url, {
     method,
     headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
-    body: JSON.stringify(payload),
+    body: payload === undefined ? undefined : JSON.stringify(payload),
   });
+  if (response.status === 204) return undefined as T;
   const result = (await response.json()) as T & ApiError;
   if (!response.ok) throw new Error(result.detail ?? "Не удалось выполнить запрос");
   return result;

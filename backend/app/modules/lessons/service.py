@@ -102,12 +102,19 @@ def ensure_no_overlap(
         raise LessonConflictError("Время пересекается с другим запланированным уроком")
 
 
-def create_lesson(
-    db: Session, payload: LessonCreateRequest, teacher: User
-) -> LessonResponse:
+def create_lesson(db: Session, payload: LessonCreateRequest, teacher: User) -> LessonResponse:
     profile, _student_user = active_student(db, payload.student_id)
     starts_at = normalize_datetime(payload.starts_at)
     ends_at = normalize_datetime(payload.ends_at)
+    from app.modules.scheduling.service import (
+        AvailabilityConflictError,
+        ensure_teacher_available,
+    )
+
+    try:
+        ensure_teacher_available(db, teacher.id, starts_at, ends_at)
+    except AvailabilityConflictError as exc:
+        raise LessonConflictError(str(exc)) from exc
     ensure_no_overlap(
         db,
         teacher_id=teacher.id,
@@ -185,9 +192,7 @@ def list_lessons(
     )
     total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
     rows = db.execute(
-        base.order_by(Lesson.starts_at, Lesson.id)
-        .offset((page - 1) * page_size)
-        .limit(page_size)
+        base.order_by(Lesson.starts_at, Lesson.id).offset((page - 1) * page_size).limit(page_size)
     ).all()
     return [lesson_response(lesson, profile) for lesson, profile in rows], total
 
@@ -205,6 +210,15 @@ def update_lesson(
     ends_at = normalize_datetime(changes.get("ends_at", lesson.ends_at))
     if ends_at <= starts_at:
         raise LessonStateError("Окончание урока должно быть позже начала")
+    from app.modules.scheduling.service import (
+        AvailabilityConflictError,
+        ensure_teacher_available,
+    )
+
+    try:
+        ensure_teacher_available(db, lesson.teacher_id, starts_at, ends_at)
+    except AvailabilityConflictError as exc:
+        raise LessonConflictError(str(exc)) from exc
     ensure_no_overlap(
         db,
         teacher_id=lesson.teacher_id,
