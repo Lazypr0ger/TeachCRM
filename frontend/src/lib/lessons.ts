@@ -11,6 +11,8 @@ export type Lesson = {
   ends_at: string;
   join_url: string | null;
   status: LessonStatus;
+  recurrence_rule_id: string | null;
+  recurrence_instance_key: string | null;
   completed_at: string | null;
   version: number;
   created_at: string;

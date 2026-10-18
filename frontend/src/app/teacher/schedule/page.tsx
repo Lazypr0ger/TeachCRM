@@ -2,8 +2,9 @@ import Link from "next/link";
 import { LessonCreateForm } from "@/components/teacher/lesson-create-form";
 import { TeacherLessonCard } from "@/components/teacher/teacher-lesson-card";
 import { AvailabilityManager } from "@/components/teacher/availability-manager";
+import { RecurrenceManager } from "@/components/teacher/recurrence-manager";
 import type { LessonList } from "@/lib/lessons";
-import type { AvailabilityException, AvailabilityRule } from "@/lib/scheduling";
+import type { AvailabilityException, AvailabilityRule, RecurrenceRule } from "@/lib/scheduling";
 import { requireRole, serverGet } from "@/lib/server-auth";
 import type { StudentList } from "@/lib/students";
 
@@ -17,10 +18,11 @@ export default async function SchedulePage({ searchParams }: { searchParams: Sea
   if (filters.student_id) query.set("student_id", filters.student_id);
   if (filters.lesson_status) query.set("lesson_status", filters.lesson_status);
   if (filters.page) query.set("page", filters.page);
-  const [lessons, rules, exceptions] = await Promise.all([
+  const [lessons, rules, exceptions, recurrenceRules] = await Promise.all([
     serverGet<LessonList>(`/api/v1/teacher/lessons?${query}`),
     serverGet<AvailabilityRule[]>("/api/v1/teacher/availability-rules"),
     serverGet<AvailabilityException[]>("/api/v1/teacher/availability-exceptions"),
+    serverGet<RecurrenceRule[]>("/api/v1/teacher/recurrence-rules"),
   ]);
   const pageHref = (page: number) => {
     const target = new URLSearchParams(query);
@@ -32,6 +34,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Sea
     <header className="management-header"><div><Link className="text-link" href="/teacher">← В кабинет</Link><h1>Расписание</h1><p>Индивидуальные уроки, время указано по Москве.</p></div></header>
     <LessonCreateForm students={students.items.filter((student) => student.status !== "SUSPENDED")} />
     <AvailabilityManager rules={rules} exceptions={exceptions} />
+    <RecurrenceManager rules={recurrenceRules} students={students.items.filter((student) => student.status !== "SUSPENDED")} />
     <section className="management-card schedule-filters"><form className="filters-form compact-filters">
       <label>Ученик<select name="student_id" defaultValue={filters.student_id ?? ""}><option value="">Все</option>{students.items.map((student) => <option value={student.id} key={student.id}>{student.last_name} {student.first_name}</option>)}</select></label>
       <label>Статус<select name="lesson_status" defaultValue={filters.lesson_status ?? ""}><option value="">Все</option><option value="SCHEDULED">Запланированные</option><option value="COMPLETED">Проведённые</option><option value="CANCELLED">Отменённые</option></select></label>

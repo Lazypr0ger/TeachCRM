@@ -34,6 +34,26 @@ export type StudentSchedule = {
   availability: StudentAvailability[];
 };
 
+export type RecurrenceRule = {
+  id: string;
+  student_id: string;
+  student_name: string;
+  title: string;
+  description: string | null;
+  join_url: string | null;
+  local_time: string;
+  duration_minutes: number;
+  timezone: string;
+  by_weekday: number;
+  interval_weeks: 1 | 2;
+  starts_on: string;
+  ends_on: string | null;
+  count_limit: number | null;
+  active: boolean;
+  version: number;
+  materialized_count: number;
+};
+
 export const weekdays = [
   "Понедельник",
   "Вторник",

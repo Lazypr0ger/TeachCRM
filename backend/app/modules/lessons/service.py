@@ -74,6 +74,8 @@ def lesson_response(lesson: Lesson, profile: StudentProfile) -> LessonResponse:
         ends_at=lesson.ends_at,
         join_url=lesson.join_url,
         status=lesson.status,
+        recurrence_rule_id=lesson.recurrence_rule_id,
+        recurrence_instance_key=lesson.recurrence_instance_key,
         completed_at=lesson.completed_at,
         version=lesson.version,
         created_at=lesson.created_at,
@@ -236,6 +238,10 @@ def update_lesson(
     for field, value in changes.items():
         setattr(lesson, field, value)
     lesson.version += 1
+    from app.modules.scheduling.models import RecurrenceExceptionAction
+    from app.modules.scheduling.recurrence_service import mark_occurrence_exception
+
+    mark_occurrence_exception(db, lesson, RecurrenceExceptionAction.MODIFIED)
     try:
         add_audit(db, teacher.id, "LESSON_UPDATED", "lesson", lesson.id)
         db.commit()
@@ -269,6 +275,10 @@ def cancel_lesson(db: Session, lesson_id: UUID, teacher: User) -> LessonResponse
         raise LessonStateError("Проведённый урок нельзя отменить")
     lesson.status = LessonStatus.CANCELLED
     lesson.version += 1
+    from app.modules.scheduling.models import RecurrenceExceptionAction
+    from app.modules.scheduling.recurrence_service import mark_occurrence_exception
+
+    mark_occurrence_exception(db, lesson, RecurrenceExceptionAction.CANCELLED)
     add_audit(db, teacher.id, "LESSON_CANCELLED", "lesson", lesson.id)
     db.commit()
     db.refresh(lesson)

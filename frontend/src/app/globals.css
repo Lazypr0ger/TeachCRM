@@ -163,6 +163,7 @@ a { color: inherit; }
 .status-completed { background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success); }
 .status-cancelled { background: color-mix(in srgb, var(--danger) 20%, transparent); color: var(--danger); }
 .availability-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+.recurrence-card { margin-top: 20px; }
 .availability-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .availability-form label { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
 .availability-form input, .availability-form select {

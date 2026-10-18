@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.models import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -23,6 +23,11 @@ class Lesson(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         Index("ix_lessons_teacher_starts", "teacher_id", "starts_at"),
         Index("ix_lessons_student_starts", "student_id", "starts_at"),
+        UniqueConstraint(
+            "recurrence_rule_id",
+            "recurrence_instance_key",
+            name="uq_lessons_recurrence_instance",
+        ),
     )
 
     teacher_id: Mapped[UUID] = mapped_column(
@@ -37,5 +42,9 @@ class Lesson(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     join_url: Mapped[str | None] = mapped_column(String(2048))
     status: Mapped[str] = mapped_column(String(16), default=LessonStatus.SCHEDULED, nullable=False)
+    recurrence_rule_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("lesson_recurrence_rules.id", ondelete="SET NULL")
+    )
+    recurrence_instance_key: Mapped[str | None] = mapped_column(String(32))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     version: Mapped[int] = mapped_column(default=1, nullable=False)

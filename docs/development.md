@@ -11,6 +11,13 @@ uv run mypy app
 uv run uvicorn app.main:app --reload
 ```
 
+Worker достраивает активные серии уроков на 12 недель вперёд:
+
+```bash
+cd backend
+uv run python -m app.workers.main
+```
+
 В локальной среде пароль преподавателя создаётся интерактивно:
 
 ```bash

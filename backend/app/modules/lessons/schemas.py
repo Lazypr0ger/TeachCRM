@@ -100,6 +100,8 @@ class LessonResponse(BaseModel):
     ends_at: datetime
     join_url: str | None
     status: str
+    recurrence_rule_id: UUID | None
+    recurrence_instance_key: str | None
     completed_at: datetime | None
     version: int
     created_at: datetime

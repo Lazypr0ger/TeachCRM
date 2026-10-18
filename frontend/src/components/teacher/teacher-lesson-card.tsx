@@ -65,7 +65,7 @@ export function TeacherLessonCard({ lesson }: { lesson: Lesson }) {
       {error ? <p className="form-error wide-field" role="alert">{error}</p> : null}
       <div className="card-actions wide-field"><button className="primary-button" disabled={pending} type="submit">Сохранить</button><button className="secondary-button" onClick={() => setEditing(false)} type="button">Отмена</button></div>
     </form> : <>
-      <div className="lesson-card-heading"><div><p className="eyebrow">{lesson.student_name}</p><h2>{lesson.title}</h2></div><span className={`status status-${lesson.status.toLowerCase()}`}>{lessonStatus[lesson.status]}</span></div>
+      <div className="lesson-card-heading"><div><p className="eyebrow">{lesson.student_name}{lesson.recurrence_rule_id ? " · серия" : ""}</p><h2>{lesson.title}</h2></div><span className={`status status-${lesson.status.toLowerCase()}`}>{lessonStatus[lesson.status]}</span></div>
       <p><strong>{formatMoscow(lesson.starts_at)}–{new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", timeStyle: "short" }).format(new Date(lesson.ends_at))}</strong></p>
       {lesson.description ? <p>{lesson.description}</p> : null}
       {lesson.join_url ? <a className="text-link" href={lesson.join_url} target="_blank" rel="noreferrer">Открыть ссылку подключения</a> : <p>Ссылка подключения не указана.</p>}
