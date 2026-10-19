@@ -79,3 +79,23 @@ class BillingSummaryResponse(BaseModel):
     outstanding_total: Decimal
     overdue_total: Decimal
     discount_total: Decimal
+
+
+class MonthlyInvoiceCreateRequest(BaseModel):
+    student_id: UUID
+    year: int = Field(ge=2020, le=2100)
+    month: int = Field(ge=1, le=12)
+
+
+class InvoiceAdjustmentRequest(BaseModel):
+    amount: Decimal = Field(max_digits=12, decimal_places=2)
+    reason: str = Field(min_length=3, max_length=500)
+
+    @model_validator(mode="after")
+    def amount_not_zero(self) -> "InvoiceAdjustmentRequest":
+        if self.amount == 0:
+            raise ValueError("Сумма корректировки не может быть нулевой")
+        if not self.reason.strip():
+            raise ValueError("Укажите причину корректировки")
+        self.reason = self.reason.strip()
+        return self

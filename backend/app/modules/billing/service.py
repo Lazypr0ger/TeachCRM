@@ -1,6 +1,8 @@
-from datetime import timedelta
+import calendar
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -12,11 +14,12 @@ from app.modules.billing.schemas import (
     BillingProfileResponse,
     BillingProfileUpdateRequest,
     BillingSummaryResponse,
+    InvoiceAdjustmentRequest,
     InvoiceItemResponse,
     InvoiceListResponse,
     InvoiceResponse,
 )
-from app.modules.lessons.models import Lesson
+from app.modules.lessons.models import Lesson, LessonStatus
 
 MONEY_QUANT = Decimal("0.01")
 
@@ -26,6 +29,14 @@ class BillingProfileNotFoundError(Exception):
 
 
 class BillingProfileConflictError(Exception):
+    pass
+
+
+class InvoiceValidationError(Exception):
+    pass
+
+
+class InvoiceNotFoundError(Exception):
     pass
 
 
@@ -245,3 +256,122 @@ def student_billing_summary(db: Session, user: User) -> BillingSummaryResponse:
         ),
         discount_total=money_round(sum((item.discount_amount for item in invoices), Decimal("0"))),
     )
+
+
+def monthly_period(year: int, month: int, timezone: str) -> tuple[date, date, datetime, datetime]:
+    last_day = calendar.monthrange(year, month)[1]
+    start_date = date(year, month, 1)
+    end_date = date(year, month, last_day)
+    zone = ZoneInfo(timezone)
+    start_at = datetime.combine(start_date, time.min, tzinfo=zone).astimezone(UTC)
+    next_month = date(year + (month == 12), 1 if month == 12 else month + 1, 1)
+    end_at = datetime.combine(next_month, time.min, tzinfo=zone).astimezone(UTC)
+    return start_date, end_date, start_at, end_at
+
+
+def create_monthly_invoice(
+    db: Session, *, student_id: UUID, year: int, month: int, actor: User, timezone: str
+) -> InvoiceResponse:
+    profile = db.scalar(
+        select(BillingProfile).where(BillingProfile.student_id == student_id).with_for_update()
+    )
+    if profile is None:
+        raise BillingProfileNotFoundError("Финансовый профиль ещё не настроен")
+    if profile.billing_mode != BillingMode.MONTHLY or profile.monthly_due_day is None:
+        raise InvoiceValidationError("У ученика не настроена помесячная оплата")
+    period_start, period_end, starts_at, ends_at = monthly_period(year, month, timezone)
+    existing = db.scalar(
+        select(Invoice).where(
+            Invoice.student_id == student_id,
+            Invoice.billing_mode_snapshot == BillingMode.MONTHLY,
+            Invoice.period_start == period_start,
+        )
+    )
+    if existing is not None:
+        return invoice_response(db, existing)
+    already_charged = select(InvoiceItem.lesson_id).where(InvoiceItem.lesson_id.is_not(None))
+    lessons = db.scalars(
+        select(Lesson)
+        .where(
+            Lesson.student_id == student_id,
+            Lesson.status != LessonStatus.CANCELLED,
+            Lesson.starts_at >= starts_at,
+            Lesson.starts_at < ends_at,
+            Lesson.id.not_in(already_charged),
+        )
+        .order_by(Lesson.starts_at, Lesson.id)
+    ).all()
+    if not lessons or profile.price_per_lesson == 0:
+        raise InvoiceValidationError("В выбранном месяце нет оплачиваемых занятий")
+    subtotal = money_round(profile.price_per_lesson * len(lessons))
+    discount = effective_discount(profile.billing_mode, profile.family_discount_enabled)
+    total = discounted_amount(subtotal, discount)
+    zone = ZoneInfo(timezone)
+    due_day = min(profile.monthly_due_day, period_end.day)
+    due_at = datetime.combine(date(year, month, due_day), time(23, 59), tzinfo=zone).astimezone(UTC)
+    now = utc_now()
+    invoice = Invoice(
+        student_id=student_id,
+        billing_mode_snapshot=BillingMode.MONTHLY,
+        period_start=period_start,
+        period_end=period_end,
+        issued_at=now,
+        due_at=due_at,
+        currency=profile.currency,
+        subtotal=subtotal,
+        discount_percent=discount * 100,
+        discount_amount=money_round(subtotal - total),
+        total=total,
+    )
+    db.add(invoice)
+    db.flush()
+    for lesson in lessons:
+        db.add(
+            InvoiceItem(
+                invoice_id=invoice.id,
+                lesson_id=lesson.id,
+                kind="LESSON",
+                description=f"Запланированный урок: {lesson.title}",
+                quantity=Decimal("1.00"),
+                unit_price=profile.price_per_lesson,
+                subtotal=profile.price_per_lesson,
+                created_at=now,
+            )
+        )
+    add_audit(db, actor.id, "MONTHLY_INVOICE_CREATED", "invoice", invoice.id)
+    db.commit()
+    db.refresh(invoice)
+    return invoice_response(db, invoice)
+
+
+def add_invoice_adjustment(
+    db: Session, invoice_id: UUID, payload: InvoiceAdjustmentRequest, actor: User
+) -> InvoiceResponse:
+    invoice = db.scalar(select(Invoice).where(Invoice.id == invoice_id).with_for_update())
+    if invoice is None:
+        raise InvoiceNotFoundError("Начисление не найдено")
+    amount = money_round(payload.amount)
+    new_subtotal = money_round(invoice.subtotal + amount)
+    if new_subtotal < 0:
+        raise InvoiceValidationError("Корректировка делает начисление отрицательным")
+    discount = invoice.discount_percent / 100
+    new_total = discounted_amount(new_subtotal, discount)
+    invoice.subtotal = new_subtotal
+    invoice.discount_amount = money_round(new_subtotal - new_total)
+    invoice.total = new_total
+    db.add(
+        InvoiceItem(
+            invoice_id=invoice.id,
+            lesson_id=None,
+            kind="ADJUSTMENT",
+            description=f"Корректировка: {payload.reason}",
+            quantity=Decimal("1.00"),
+            unit_price=amount,
+            subtotal=amount,
+            created_at=utc_now(),
+        )
+    )
+    add_audit(db, actor.id, "INVOICE_ADJUSTED", "invoice", invoice.id)
+    db.commit()
+    db.refresh(invoice)
+    return invoice_response(db, invoice)
