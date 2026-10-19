@@ -139,4 +139,12 @@ class PaymentResponse(BaseModel):
     claim_id: UUID | None
     amount: Decimal
     received_at: datetime
+    reversal_of_payment_id: UUID | None
+    reversal_reason: str | None
     created_at: datetime
+
+
+class PaymentReverseRequest(BaseModel):
+    reason: str = Field(min_length=3, max_length=1000)
+    reversed_at: AwareDatetime
+    idempotency_key: str = Field(min_length=8, max_length=100)

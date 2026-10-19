@@ -18,6 +18,7 @@ from app.modules.billing.service import (
     InvoiceValidationError,
     add_invoice_adjustment,
     create_monthly_invoice,
+    finance_summary,
     list_invoices,
     student_billing_summary,
 )
@@ -33,6 +34,13 @@ def teacher_invoices(
     _teacher: TeacherUser, db: DbSession, student_id: UUID | None = None
 ) -> InvoiceListResponse:
     return list_invoices(db, student_id=student_id)
+
+
+@teacher_router.get("/finances/summary", response_model=BillingSummaryResponse)
+def teacher_summary(
+    _teacher: TeacherUser, db: DbSession, student_id: UUID | None = None
+) -> BillingSummaryResponse:
+    return finance_summary(db, student_id=student_id)
 
 
 @student_router.get("/invoices", response_model=InvoiceListResponse)

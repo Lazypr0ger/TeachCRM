@@ -16,6 +16,7 @@ from app.modules.billing.schemas import (
     PaymentClaimRejectRequest,
     PaymentClaimResponse,
     PaymentResponse,
+    PaymentReverseRequest,
 )
 from app.modules.billing.service import (
     InvoiceNotFoundError,
@@ -26,6 +27,7 @@ from app.modules.billing.service import (
     list_payment_claims,
     list_payments,
     reject_payment_claim,
+    reverse_payment,
 )
 
 student_router = APIRouter(prefix="/api/v1/student", tags=["student-payment-claims"])
@@ -104,3 +106,16 @@ def payments(
     _teacher: TeacherUser, db: DbSession, student_id: UUID | None = None
 ) -> list[PaymentResponse]:
     return list_payments(db, student_id=student_id)
+
+
+@teacher_router.post("/payments/{payment_id}/reverse", response_model=PaymentResponse)
+def reverse(
+    payment_id: UUID,
+    payload: PaymentReverseRequest,
+    teacher: TeacherCsrfUser,
+    db: DbSession,
+) -> PaymentResponse:
+    try:
+        return reverse_payment(db, payment_id, payload, teacher)
+    except (InvoiceNotFoundError, PaymentClaimConflictError) as exc:
+        raise claim_error(exc) from exc

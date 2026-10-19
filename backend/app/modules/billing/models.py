@@ -131,7 +131,7 @@ class PaymentClaim(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 class Payment(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "payments"
-    __table_args__ = (CheckConstraint("amount > 0", name="ck_payment_amount"),)
+    __table_args__ = (CheckConstraint("amount != 0", name="ck_payment_amount"),)
 
     student_id: Mapped[UUID] = mapped_column(
         ForeignKey("student_profiles.id", ondelete="RESTRICT"), nullable=False, index=True
@@ -145,6 +145,10 @@ class Payment(UUIDPrimaryKeyMixin, Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    reversal_of_payment_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("payments.id", ondelete="RESTRICT"), unique=True
+    )
+    reversal_reason: Mapped[str | None] = mapped_column(Text())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
@@ -152,7 +156,7 @@ class PaymentAllocation(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "payment_allocations"
     __table_args__ = (
         UniqueConstraint("payment_id", "invoice_id", name="uq_payment_allocation_target"),
-        CheckConstraint("amount > 0", name="ck_payment_allocation_amount"),
+        CheckConstraint("amount != 0", name="ck_payment_allocation_amount"),
     )
 
     payment_id: Mapped[UUID] = mapped_column(

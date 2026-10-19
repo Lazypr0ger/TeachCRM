@@ -78,5 +78,7 @@ export type Payment = {
   claim_id: string | null;
   amount: string;
   received_at: string;
+  reversal_of_payment_id: string | null;
+  reversal_reason: string | null;
   created_at: string;
 };

@@ -32,6 +32,7 @@ from app.modules.billing.schemas import (
     PaymentClaimRejectRequest,
     PaymentClaimResponse,
     PaymentResponse,
+    PaymentReverseRequest,
 )
 from app.modules.lessons.models import Lesson, LessonStatus
 
@@ -304,6 +305,24 @@ def student_billing_summary(db: Session, user: User) -> BillingSummaryResponse:
     )
 
 
+def finance_summary(db: Session, *, student_id: UUID | None = None) -> BillingSummaryResponse:
+    invoices = list_invoices(db, student_id=student_id).items
+    payment_query = select(func.coalesce(func.sum(Payment.amount), 0))
+    if student_id is not None:
+        payment_query = payment_query.where(Payment.student_id == student_id)
+    received = money_round(db.scalar(payment_query) or Decimal("0"))
+    return BillingSummaryResponse(
+        profile=None,
+        accrued_total=money_round(sum((item.total for item in invoices), Decimal("0"))),
+        received_total=received,
+        outstanding_total=money_round(sum((item.outstanding for item in invoices), Decimal("0"))),
+        overdue_total=money_round(
+            sum((item.outstanding for item in invoices if item.status == "OVERDUE"), Decimal("0"))
+        ),
+        discount_total=money_round(sum((item.discount_amount for item in invoices), Decimal("0"))),
+    )
+
+
 def monthly_period(year: int, month: int, timezone: str) -> tuple[date, date, datetime, datetime]:
     last_day = calendar.monthrange(year, month)[1]
     start_date = date(year, month, 1)
@@ -447,6 +466,8 @@ def payment_response(item: Payment) -> PaymentResponse:
         claim_id=item.claim_id,
         amount=item.amount,
         received_at=item.received_at,
+        reversal_of_payment_id=item.reversal_of_payment_id,
+        reversal_reason=item.reversal_reason,
         created_at=item.created_at,
     )
 
@@ -554,6 +575,8 @@ def confirm_payment_claim(
         amount=amount,
         received_at=payload.received_at,
         idempotency_key=payload.idempotency_key,
+        reversal_of_payment_id=None,
+        reversal_reason=None,
         created_at=now,
     )
     db.add(payment)
@@ -608,3 +631,65 @@ def list_payments(db: Session, *, student_id: UUID | None = None) -> list[Paymen
         query = query.where(Payment.student_id == student_id)
     items = db.scalars(query.order_by(Payment.received_at.desc(), Payment.id)).all()
     return [payment_response(item) for item in items]
+
+
+def reverse_payment(
+    db: Session, payment_id: UUID, payload: PaymentReverseRequest, teacher: User
+) -> PaymentResponse:
+    existing_by_key = db.scalar(
+        select(Payment).where(Payment.idempotency_key == payload.idempotency_key)
+    )
+    if existing_by_key is not None:
+        if existing_by_key.reversal_of_payment_id == payment_id:
+            return payment_response(existing_by_key)
+        raise PaymentClaimConflictError("Идентификатор операции уже использован")
+    original = db.scalar(select(Payment).where(Payment.id == payment_id).with_for_update())
+    if original is None:
+        raise InvoiceNotFoundError("Платёж не найден")
+    if original.reversal_of_payment_id is not None:
+        raise PaymentClaimConflictError("Обратную операцию нельзя отменить повторно")
+    if (
+        db.scalar(select(Payment.id).where(Payment.reversal_of_payment_id == original.id))
+        is not None
+    ):
+        raise PaymentClaimConflictError("Платёж уже исправлен обратной операцией")
+    allocation = db.scalar(
+        select(PaymentAllocation)
+        .where(PaymentAllocation.payment_id == original.id)
+        .with_for_update()
+    )
+    if allocation is None:
+        raise InvoiceNotFoundError("Распределение платежа не найдено")
+    now = utc_now()
+    reversal = Payment(
+        student_id=original.student_id,
+        claim_id=None,
+        confirmed_by_user_id=teacher.id,
+        amount=-original.amount,
+        received_at=payload.reversed_at,
+        idempotency_key=payload.idempotency_key,
+        reversal_of_payment_id=original.id,
+        reversal_reason=payload.reason.strip(),
+        created_at=now,
+    )
+    db.add(reversal)
+    db.flush()
+    db.add(
+        PaymentAllocation(
+            payment_id=reversal.id,
+            invoice_id=allocation.invoice_id,
+            amount=-allocation.amount,
+            created_at=now,
+        )
+    )
+    add_audit(db, teacher.id, "PAYMENT_REVERSED", "payment", original.id)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        existing = db.scalar(select(Payment).where(Payment.reversal_of_payment_id == payment_id))
+        if existing is not None and existing.idempotency_key == payload.idempotency_key:
+            return payment_response(existing)
+        raise PaymentClaimConflictError("Платёж уже исправлен") from exc
+    db.refresh(reversal)
+    return payment_response(reversal)
