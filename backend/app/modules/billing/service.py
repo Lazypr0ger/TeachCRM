@@ -5,11 +5,20 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.modules.auth.models import StudentProfile, User
 from app.modules.auth.service import add_audit, expired, utc_now
-from app.modules.billing.models import BillingMode, BillingProfile, Invoice, InvoiceItem
+from app.modules.billing.models import (
+    BillingMode,
+    BillingProfile,
+    Invoice,
+    InvoiceItem,
+    Payment,
+    PaymentAllocation,
+    PaymentClaim,
+)
 from app.modules.billing.schemas import (
     BillingProfileResponse,
     BillingProfileUpdateRequest,
@@ -18,6 +27,11 @@ from app.modules.billing.schemas import (
     InvoiceItemResponse,
     InvoiceListResponse,
     InvoiceResponse,
+    PaymentClaimConfirmRequest,
+    PaymentClaimCreateRequest,
+    PaymentClaimRejectRequest,
+    PaymentClaimResponse,
+    PaymentResponse,
 )
 from app.modules.lessons.models import Lesson, LessonStatus
 
@@ -37,6 +51,10 @@ class InvoiceValidationError(Exception):
 
 
 class InvoiceNotFoundError(Exception):
+    pass
+
+
+class PaymentClaimConflictError(Exception):
     pass
 
 
@@ -138,11 +156,29 @@ def invoice_response(db: Session, item: Invoice) -> InvoiceResponse:
         .where(InvoiceItem.invoice_id == item.id)
         .order_by(InvoiceItem.created_at, InvoiceItem.id)
     ).all()
-    allocated = Decimal("0.00")
-    outstanding = money_round(item.total - allocated)
-    status = (
-        "PAID" if outstanding == 0 else ("OVERDUE" if expired(item.due_at, utc_now()) else "UNPAID")
+    allocated = money_round(
+        db.scalar(
+            select(func.coalesce(func.sum(PaymentAllocation.amount), 0)).where(
+                PaymentAllocation.invoice_id == item.id
+            )
+        )
+        or Decimal("0")
     )
+    outstanding = money_round(item.total - allocated)
+    pending_claim_id = db.scalar(
+        select(PaymentClaim.id).where(
+            PaymentClaim.invoice_id == item.id,
+            PaymentClaim.status == "PENDING",
+        )
+    )
+    if outstanding == 0:
+        status = "PAID"
+    elif expired(item.due_at, utc_now()):
+        status = "OVERDUE"
+    elif allocated > 0:
+        status = "PARTIALLY_PAID"
+    else:
+        status = "UNPAID"
     return InvoiceResponse(
         id=item.id,
         student_id=item.student_id,
@@ -159,6 +195,8 @@ def invoice_response(db: Session, item: Invoice) -> InvoiceResponse:
         allocated_total=allocated,
         outstanding=outstanding,
         status=status,
+        can_submit_claim=outstanding > 0 and pending_claim_id is None,
+        pending_claim_id=pending_claim_id,
         items=[
             InvoiceItemResponse(
                 id=line.id,
@@ -246,10 +284,18 @@ def student_billing_summary(db: Session, user: User) -> BillingSummaryResponse:
         raise BillingProfileNotFoundError("Ученик не найден")
     billing = db.scalar(select(BillingProfile).where(BillingProfile.student_id == profile.id))
     invoices = list_invoices(db, student_id=profile.id).items
+    received = money_round(
+        db.scalar(
+            select(func.coalesce(func.sum(Payment.amount), 0)).where(
+                Payment.student_id == profile.id
+            )
+        )
+        or Decimal("0")
+    )
     return BillingSummaryResponse(
         profile=profile_response(billing) if billing else None,
         accrued_total=money_round(sum((item.total for item in invoices), Decimal("0"))),
-        received_total=Decimal("0.00"),
+        received_total=received,
         outstanding_total=money_round(sum((item.outstanding for item in invoices), Decimal("0"))),
         overdue_total=money_round(
             sum((item.outstanding for item in invoices if item.status == "OVERDUE"), Decimal("0"))
@@ -350,12 +396,29 @@ def add_invoice_adjustment(
     invoice = db.scalar(select(Invoice).where(Invoice.id == invoice_id).with_for_update())
     if invoice is None:
         raise InvoiceNotFoundError("Начисление не найдено")
+    if db.scalar(
+        select(PaymentClaim.id).where(
+            PaymentClaim.invoice_id == invoice.id,
+            PaymentClaim.status == "PENDING",
+        )
+    ):
+        raise InvoiceValidationError("Сначала обработайте ожидающее заявление об оплате")
     amount = money_round(payload.amount)
     new_subtotal = money_round(invoice.subtotal + amount)
     if new_subtotal < 0:
         raise InvoiceValidationError("Корректировка делает начисление отрицательным")
     discount = invoice.discount_percent / 100
     new_total = discounted_amount(new_subtotal, discount)
+    allocated = money_round(
+        db.scalar(
+            select(func.coalesce(func.sum(PaymentAllocation.amount), 0)).where(
+                PaymentAllocation.invoice_id == invoice.id
+            )
+        )
+        or Decimal("0")
+    )
+    if new_total < allocated:
+        raise InvoiceValidationError("Итог не может быть меньше подтверждённых платежей")
     invoice.subtotal = new_subtotal
     invoice.discount_amount = money_round(new_subtotal - new_total)
     invoice.total = new_total
@@ -375,3 +438,173 @@ def add_invoice_adjustment(
     db.commit()
     db.refresh(invoice)
     return invoice_response(db, invoice)
+
+
+def payment_response(item: Payment) -> PaymentResponse:
+    return PaymentResponse(
+        id=item.id,
+        student_id=item.student_id,
+        claim_id=item.claim_id,
+        amount=item.amount,
+        received_at=item.received_at,
+        created_at=item.created_at,
+    )
+
+
+def claim_response(db: Session, item: PaymentClaim) -> PaymentClaimResponse:
+    invoice = db.get(Invoice, item.invoice_id)
+    profile = db.get(StudentProfile, invoice.student_id) if invoice else None
+    if invoice is None or profile is None:
+        raise InvoiceNotFoundError("Начисление не найдено")
+    student_name = " ".join(
+        part for part in (profile.last_name, profile.first_name, profile.patronymic) if part
+    )
+    return PaymentClaimResponse(
+        id=item.id,
+        invoice_id=item.invoice_id,
+        student_id=profile.id,
+        student_name=student_name,
+        declared_amount=item.declared_amount,
+        paid_at=item.paid_at,
+        comment=item.comment,
+        status=item.status,
+        rejection_reason=item.rejection_reason,
+        decided_at=item.decided_at,
+        created_at=item.created_at,
+    )
+
+
+def create_payment_claim(
+    db: Session, invoice_id: UUID, payload: PaymentClaimCreateRequest, student: User
+) -> PaymentClaimResponse:
+    profile = db.scalar(select(StudentProfile).where(StudentProfile.user_id == student.id))
+    invoice = db.scalar(select(Invoice).where(Invoice.id == invoice_id).with_for_update())
+    if profile is None or invoice is None or invoice.student_id != profile.id:
+        raise InvoiceNotFoundError("Начисление не найдено")
+    snapshot = invoice_response(db, invoice)
+    if snapshot.outstanding <= 0:
+        raise PaymentClaimConflictError("Начисление уже оплачено")
+    if snapshot.pending_claim_id is not None:
+        raise PaymentClaimConflictError("Заявление уже ожидает решения")
+    amount = money_round(payload.declared_amount)
+    if amount > snapshot.outstanding:
+        raise InvoiceValidationError("Заявленная сумма превышает остаток начисления")
+    item = PaymentClaim(
+        invoice_id=invoice.id,
+        submitted_by_user_id=student.id,
+        declared_amount=amount,
+        paid_at=payload.paid_at,
+        comment=payload.comment.strip() if payload.comment else None,
+        status="PENDING",
+        rejection_reason=None,
+        decided_by_user_id=None,
+        decided_at=None,
+    )
+    db.add(item)
+    try:
+        db.flush()
+        add_audit(db, student.id, "PAYMENT_CLAIM_CREATED", "payment_claim", item.id)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise PaymentClaimConflictError("Заявление уже ожидает решения") from exc
+    db.refresh(item)
+    return claim_response(db, item)
+
+
+def list_payment_claims(
+    db: Session, *, student_user_id: UUID | None = None, claim_status: str | None = None
+) -> list[PaymentClaimResponse]:
+    query = select(PaymentClaim)
+    if student_user_id is not None:
+        query = query.where(PaymentClaim.submitted_by_user_id == student_user_id)
+    if claim_status is not None:
+        query = query.where(PaymentClaim.status == claim_status)
+    items = db.scalars(query.order_by(PaymentClaim.created_at.desc(), PaymentClaim.id)).all()
+    return [claim_response(db, item) for item in items]
+
+
+def confirm_payment_claim(
+    db: Session, claim_id: UUID, payload: PaymentClaimConfirmRequest, teacher: User
+) -> PaymentResponse:
+    existing_by_key = db.scalar(
+        select(Payment).where(Payment.idempotency_key == payload.idempotency_key)
+    )
+    if existing_by_key is not None:
+        if existing_by_key.claim_id == claim_id:
+            return payment_response(existing_by_key)
+        raise PaymentClaimConflictError("Идентификатор подтверждения уже использован")
+    claim = db.scalar(select(PaymentClaim).where(PaymentClaim.id == claim_id).with_for_update())
+    if claim is None:
+        raise InvoiceNotFoundError("Заявление не найдено")
+    invoice = db.scalar(select(Invoice).where(Invoice.id == claim.invoice_id).with_for_update())
+    if invoice is None:
+        raise InvoiceNotFoundError("Начисление не найдено")
+    if claim.status != "PENDING":
+        raise PaymentClaimConflictError("Заявление уже обработано")
+    snapshot = invoice_response(db, invoice)
+    amount = money_round(payload.confirmed_amount)
+    if amount > snapshot.outstanding:
+        raise InvoiceValidationError("Подтверждённая сумма превышает остаток начисления")
+    now = utc_now()
+    payment = Payment(
+        student_id=invoice.student_id,
+        claim_id=claim.id,
+        confirmed_by_user_id=teacher.id,
+        amount=amount,
+        received_at=payload.received_at,
+        idempotency_key=payload.idempotency_key,
+        created_at=now,
+    )
+    db.add(payment)
+    db.flush()
+    db.add(
+        PaymentAllocation(
+            payment_id=payment.id,
+            invoice_id=invoice.id,
+            amount=amount,
+            created_at=now,
+        )
+    )
+    claim.status = "CONFIRMED"
+    claim.decided_by_user_id = teacher.id
+    claim.decided_at = now
+    add_audit(db, teacher.id, "PAYMENT_CLAIM_CONFIRMED", "payment_claim", claim.id)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        existing = db.scalar(
+            select(Payment).where(Payment.idempotency_key == payload.idempotency_key)
+        )
+        if existing is not None and existing.claim_id == claim_id:
+            return payment_response(existing)
+        raise PaymentClaimConflictError("Заявление уже обработано") from exc
+    db.refresh(payment)
+    return payment_response(payment)
+
+
+def reject_payment_claim(
+    db: Session, claim_id: UUID, payload: PaymentClaimRejectRequest, teacher: User
+) -> PaymentClaimResponse:
+    claim = db.scalar(select(PaymentClaim).where(PaymentClaim.id == claim_id).with_for_update())
+    if claim is None:
+        raise InvoiceNotFoundError("Заявление не найдено")
+    if claim.status != "PENDING":
+        raise PaymentClaimConflictError("Заявление уже обработано")
+    claim.status = "REJECTED"
+    claim.rejection_reason = payload.reason.strip() if payload.reason else None
+    claim.decided_by_user_id = teacher.id
+    claim.decided_at = utc_now()
+    add_audit(db, teacher.id, "PAYMENT_CLAIM_REJECTED", "payment_claim", claim.id)
+    db.commit()
+    db.refresh(claim)
+    return claim_response(db, claim)
+
+
+def list_payments(db: Session, *, student_id: UUID | None = None) -> list[PaymentResponse]:
+    query = select(Payment)
+    if student_id is not None:
+        query = query.where(Payment.student_id == student_id)
+    items = db.scalars(query.order_by(Payment.received_at.desc(), Payment.id)).all()
+    return [payment_response(item) for item in items]

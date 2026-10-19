@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, model_validator
 
 
 class BillingProfileUpdateRequest(BaseModel):
@@ -64,6 +64,8 @@ class InvoiceResponse(BaseModel):
     allocated_total: Decimal
     outstanding: Decimal
     status: str
+    can_submit_claim: bool
+    pending_claim_id: UUID | None
     items: list[InvoiceItemResponse]
 
 
@@ -99,3 +101,42 @@ class InvoiceAdjustmentRequest(BaseModel):
             raise ValueError("Укажите причину корректировки")
         self.reason = self.reason.strip()
         return self
+
+
+class PaymentClaimCreateRequest(BaseModel):
+    declared_amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    paid_at: AwareDatetime | None = None
+    comment: str | None = Field(default=None, max_length=1000)
+
+
+class PaymentClaimConfirmRequest(BaseModel):
+    confirmed_amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    received_at: AwareDatetime
+    idempotency_key: str = Field(min_length=8, max_length=100)
+
+
+class PaymentClaimRejectRequest(BaseModel):
+    reason: str | None = Field(default=None, max_length=1000)
+
+
+class PaymentClaimResponse(BaseModel):
+    id: UUID
+    invoice_id: UUID
+    student_id: UUID
+    student_name: str
+    declared_amount: Decimal
+    paid_at: datetime | None
+    comment: str | None
+    status: str
+    rejection_reason: str | None
+    decided_at: datetime | None
+    created_at: datetime
+
+
+class PaymentResponse(BaseModel):
+    id: UUID
+    student_id: UUID
+    claim_id: UUID | None
+    amount: Decimal
+    received_at: datetime
+    created_at: datetime

@@ -11,6 +11,8 @@ from app.modules.auth.router import router as auth_router
 from app.modules.auth.teacher_router import router as teacher_auth_router
 from app.modules.billing.invoice_router import student_router as student_billing_router
 from app.modules.billing.invoice_router import teacher_router as teacher_invoice_router
+from app.modules.billing.payment_router import student_router as student_payment_router
+from app.modules.billing.payment_router import teacher_router as teacher_payment_router
 from app.modules.billing.router import router as teacher_billing_router
 from app.modules.files.router import router as files_router
 from app.modules.homework.router import student_router as student_homework_router
@@ -46,6 +48,8 @@ app.include_router(teacher_auth_router)
 app.include_router(teacher_billing_router)
 app.include_router(teacher_invoice_router)
 app.include_router(student_billing_router)
+app.include_router(student_payment_router)
+app.include_router(teacher_payment_router)
 app.include_router(files_router)
 app.include_router(teacher_homework_router)
 app.include_router(student_homework_router)

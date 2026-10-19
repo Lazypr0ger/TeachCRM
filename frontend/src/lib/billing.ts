@@ -44,6 +44,8 @@ export type Invoice = {
   allocated_total: string;
   outstanding: string;
   status: "UNPAID" | "PARTIALLY_PAID" | "PAID" | "OVERDUE";
+  can_submit_claim: boolean;
+  pending_claim_id: string | null;
   items: InvoiceItem[];
 };
 
@@ -54,4 +56,27 @@ export type BillingSummary = {
   outstanding_total: string;
   overdue_total: string;
   discount_total: string;
+};
+
+export type PaymentClaim = {
+  id: string;
+  invoice_id: string;
+  student_id: string;
+  student_name: string;
+  declared_amount: string;
+  paid_at: string | null;
+  comment: string | null;
+  status: "PENDING" | "CONFIRMED" | "REJECTED";
+  rejection_reason: string | null;
+  decided_at: string | null;
+  created_at: string;
+};
+
+export type Payment = {
+  id: string;
+  student_id: string;
+  claim_id: string | null;
+  amount: string;
+  received_at: string;
+  created_at: string;
 };
