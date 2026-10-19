@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.core.db import create_db_engine, create_session_factory, database_is_ready
 from app.modules.files.service import cleanup_expired_uploads
 from app.modules.files.storage import get_storage
+from app.modules.notifications.service import enqueue_payment_due_notifications, process_outbox
 from app.modules.scheduling.models import LessonRecurrenceRule
 from app.modules.scheduling.recurrence_service import RecurrenceConflictError, materialize_rule
 
@@ -19,6 +20,8 @@ logger = logging.getLogger(__name__)
 running = True
 RECURRENCE_INTERVAL_SECONDS = 300
 FILE_CLEANUP_INTERVAL_SECONDS = 900
+OUTBOX_INTERVAL_SECONDS = 10
+PAYMENT_DUE_INTERVAL_SECONDS = 300
 
 
 def stop(_signum: int, _frame: FrameType | None) -> None:
@@ -57,6 +60,28 @@ def clean_expired_uploads(factory: sessionmaker[Session]) -> None:
             logger.exception("expired_upload_cleanup_failed")
 
 
+def deliver_notifications(factory: sessionmaker[Session]) -> None:
+    with factory() as db:
+        try:
+            delivered = process_outbox(db)
+            if delivered:
+                logger.info("notifications_delivered count=%s", delivered)
+        except Exception:
+            db.rollback()
+            logger.exception("notification_delivery_failed")
+
+
+def enqueue_payment_reminders(factory: sessionmaker[Session]) -> None:
+    with factory() as db:
+        try:
+            created = enqueue_payment_due_notifications(db)
+            if created:
+                logger.info("payment_due_notifications_enqueued count=%s", created)
+        except Exception:
+            db.rollback()
+            logger.exception("payment_due_notification_failed")
+
+
 def run() -> None:
     settings = get_settings()
     engine = create_db_engine(settings.database_url)
@@ -66,6 +91,8 @@ def run() -> None:
     logger.info("worker_started")
     next_recurrence_run = 0.0
     next_file_cleanup_run = 0.0
+    next_outbox_run = 0.0
+    next_payment_due_run = 0.0
     while running:
         database_is_ready(engine)
         if time.monotonic() >= next_recurrence_run:
@@ -74,6 +101,12 @@ def run() -> None:
         if time.monotonic() >= next_file_cleanup_run:
             clean_expired_uploads(session_factory)
             next_file_cleanup_run = time.monotonic() + FILE_CLEANUP_INTERVAL_SECONDS
+        if time.monotonic() >= next_outbox_run:
+            deliver_notifications(session_factory)
+            next_outbox_run = time.monotonic() + OUTBOX_INTERVAL_SECONDS
+        if time.monotonic() >= next_payment_due_run:
+            enqueue_payment_reminders(session_factory)
+            next_payment_due_run = time.monotonic() + PAYMENT_DUE_INTERVAL_SECONDS
         time.sleep(5)
     engine.dispose()
     logger.info("worker_stopped")

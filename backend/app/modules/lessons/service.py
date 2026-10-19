@@ -105,7 +105,7 @@ def ensure_no_overlap(
 
 
 def create_lesson(db: Session, payload: LessonCreateRequest, teacher: User) -> LessonResponse:
-    profile, _student_user = active_student(db, payload.student_id)
+    profile, student_user = active_student(db, payload.student_id)
     starts_at = normalize_datetime(payload.starts_at)
     ends_at = normalize_datetime(payload.ends_at)
     from app.modules.scheduling.service import (
@@ -138,6 +138,18 @@ def create_lesson(db: Session, payload: LessonCreateRequest, teacher: User) -> L
     try:
         db.flush()
         add_audit(db, teacher.id, "LESSON_CREATED", "lesson", lesson.id)
+        from app.modules.notifications.service import enqueue_notification
+
+        enqueue_notification(
+            db,
+            event_type="LESSON_CREATED",
+            aggregate_id=lesson.id,
+            recipient_user_id=student_user.id,
+            title="Запланирован урок",
+            body=f"Добавлен урок «{lesson.title}».",
+            target_type="LESSON",
+            target_id=lesson.id,
+        )
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -247,6 +259,18 @@ def update_lesson(
         from app.modules.scheduling.reschedule_service import cancel_active_for_lesson
 
         cancel_active_for_lesson(db, lesson.id)
+        from app.modules.notifications.service import enqueue_notification
+
+        enqueue_notification(
+            db,
+            event_type="LESSON_RESCHEDULED",
+            aggregate_id=lesson.id,
+            recipient_user_id=profile.user_id,
+            title="Время урока изменено",
+            body=f"Преподаватель изменил время урока «{lesson.title}».",
+            target_type="LESSON",
+            target_id=lesson.id,
+        )
     try:
         add_audit(db, teacher.id, "LESSON_UPDATED", "lesson", lesson.id)
         db.commit()
@@ -298,6 +322,18 @@ def cancel_lesson(db: Session, lesson_id: UUID, teacher: User) -> LessonResponse
 
     cancel_active_for_lesson(db, lesson.id)
     add_audit(db, teacher.id, "LESSON_CANCELLED", "lesson", lesson.id)
+    from app.modules.notifications.service import enqueue_notification
+
+    enqueue_notification(
+        db,
+        event_type="LESSON_CANCELLED",
+        aggregate_id=lesson.id,
+        recipient_user_id=profile.user_id,
+        title="Урок отменён",
+        body=f"Преподаватель отменил урок «{lesson.title}».",
+        target_type="LESSON",
+        target_id=lesson.id,
+    )
     db.commit()
     db.refresh(lesson)
     return lesson_response(lesson, profile)

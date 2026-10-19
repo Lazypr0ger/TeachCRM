@@ -17,6 +17,7 @@ from app.modules.homework.schemas import (
     SubmissionCreateRequest,
     SubmissionResponse,
 )
+from app.modules.lessons.models import Lesson
 
 
 class HomeworkError(Exception):
@@ -155,6 +156,21 @@ def create_assignment(
     try:
         db.flush()
         add_audit(db, teacher.id, "ASSIGNMENT_CREATED", "assignment", item.id)
+        lesson = db.get(Lesson, lesson_id)
+        student_profile = db.get(StudentProfile, lesson.student_id) if lesson else None
+        if student_profile is not None:
+            from app.modules.notifications.service import enqueue_notification
+
+            enqueue_notification(
+                db,
+                event_type="HOMEWORK_ASSIGNED",
+                aggregate_id=item.id,
+                recipient_user_id=student_profile.user_id,
+                title="Новое домашнее задание",
+                body="Преподаватель добавил домашнее задание к уроку.",
+                target_type="LESSON",
+                target_id=lesson_id,
+            )
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -264,6 +280,20 @@ def create_submission(
             item.id,
             request_id=payload.idempotency_key,
         )
+        lesson = db.get(Lesson, assignment.lesson_id)
+        if lesson is not None:
+            from app.modules.notifications.service import enqueue_notification
+
+            enqueue_notification(
+                db,
+                event_type="HOMEWORK_SUBMITTED",
+                aggregate_id=item.id,
+                recipient_user_id=lesson.teacher_id,
+                title="Получен ответ на домашнее задание",
+                body="Ученик отправил финальный ответ.",
+                target_type="LESSON",
+                target_id=lesson.id,
+            )
         db.commit()
     except IntegrityError as exc:
         db.rollback()

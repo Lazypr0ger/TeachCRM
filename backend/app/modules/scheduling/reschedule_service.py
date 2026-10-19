@@ -147,6 +147,18 @@ def create_request(
     try:
         db.flush()
         add_audit(db, student.id, "RESCHEDULE_REQUESTED", "reschedule_request", item.id)
+        from app.modules.notifications.service import enqueue_notification
+
+        enqueue_notification(
+            db,
+            event_type="SYSTEM",
+            aggregate_id=item.id,
+            recipient_user_id=lesson.teacher_id,
+            title="Новый запрос переноса",
+            body=f"Ученик запросил перенос урока «{lesson.title}».",
+            target_type="RESCHEDULE_REQUEST",
+            target_id=item.id,
+        )
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -217,6 +229,7 @@ def apply_move(
     starts_at: datetime,
     ends_at: datetime,
     actor: User,
+    profile: StudentProfile,
 ) -> None:
     ensure_request_is_current(item, lesson)
     validate_destination(db, lesson, starts_at, ends_at)
@@ -228,6 +241,19 @@ def apply_move(
     item.responded_at = item.responded_at or utc_now()
     item.resolved_at = utc_now()
     add_audit(db, actor.id, "RESCHEDULE_ACCEPTED", "reschedule_request", item.id)
+    from app.modules.notifications.service import enqueue_notification
+
+    recipient_user_id = profile.user_id if actor.id == lesson.teacher_id else lesson.teacher_id
+    enqueue_notification(
+        db,
+        event_type="LESSON_RESCHEDULED",
+        aggregate_id=item.id,
+        recipient_user_id=recipient_user_id,
+        title="Перенос урока согласован",
+        body=f"Для урока «{lesson.title}» согласовано новое время.",
+        target_type="LESSON",
+        target_id=lesson.id,
+    )
     try:
         db.commit()
     except IntegrityError as exc:
@@ -246,6 +272,7 @@ def teacher_accept(db: Session, request_id: UUID, teacher: User) -> RescheduleRe
         stored_utc(item.proposed_starts_at),
         stored_utc(item.proposed_ends_at),
         teacher,
+        profile,
     )
     db.refresh(item)
     return to_response(item, lesson, profile)
@@ -269,6 +296,18 @@ def teacher_counter(
     item.status = RescheduleStatus.COUNTER_OFFER
     item.responded_at = utc_now()
     add_audit(db, teacher.id, "RESCHEDULE_COUNTERED", "reschedule_request", item.id)
+    from app.modules.notifications.service import enqueue_notification
+
+    enqueue_notification(
+        db,
+        event_type="SYSTEM",
+        aggregate_id=item.id,
+        recipient_user_id=profile.user_id,
+        title="Предложено другое время",
+        body=f"Преподаватель предложил другое время для урока «{lesson.title}».",
+        target_type="RESCHEDULE_REQUEST",
+        target_id=item.id,
+    )
     db.commit()
     db.refresh(item)
     return to_response(item, lesson, profile)
@@ -288,6 +327,18 @@ def teacher_reject(
     item.responded_at = utc_now()
     item.resolved_at = item.responded_at
     add_audit(db, teacher.id, "RESCHEDULE_REJECTED", "reschedule_request", item.id)
+    from app.modules.notifications.service import enqueue_notification
+
+    enqueue_notification(
+        db,
+        event_type="SYSTEM",
+        aggregate_id=item.id,
+        recipient_user_id=profile.user_id,
+        title="Перенос не согласован",
+        body=f"Запрос переноса урока «{lesson.title}» отклонён.",
+        target_type="RESCHEDULE_REQUEST",
+        target_id=item.id,
+    )
     db.commit()
     db.refresh(item)
     return to_response(item, lesson, profile)
@@ -311,6 +362,7 @@ def student_accept_counter(db: Session, request_id: UUID, student: User) -> Resc
         stored_utc(item.counter_starts_at),
         stored_utc(item.counter_ends_at),
         student,
+        row_profile,
     )
     db.refresh(item)
     return to_response(item, lesson, row_profile)

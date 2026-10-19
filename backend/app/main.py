@@ -20,6 +20,7 @@ from app.modules.homework.router import teacher_router as teacher_homework_route
 from app.modules.lessons.dashboard_router import router as teacher_dashboard_router
 from app.modules.lessons.student_router import router as student_lessons_router
 from app.modules.lessons.teacher_router import router as teacher_lessons_router
+from app.modules.notifications.router import router as notifications_router
 from app.modules.scheduling.recurrence_router import router as recurrence_router
 from app.modules.scheduling.reschedule_router import student_router as student_reschedule_router
 from app.modules.scheduling.reschedule_router import teacher_router as teacher_reschedule_router
@@ -53,6 +54,7 @@ app.include_router(teacher_payment_router)
 app.include_router(files_router)
 app.include_router(teacher_homework_router)
 app.include_router(student_homework_router)
+app.include_router(notifications_router)
 app.include_router(teacher_students_router)
 app.include_router(teacher_lessons_router)
 app.include_router(student_lessons_router)

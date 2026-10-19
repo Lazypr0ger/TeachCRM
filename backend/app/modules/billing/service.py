@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.modules.auth.models import StudentProfile, User
+from app.modules.auth.models import StudentProfile, User, UserRole
 from app.modules.auth.service import add_audit, expired, utc_now
 from app.modules.billing.models import (
     BillingMode,
@@ -525,6 +525,20 @@ def create_payment_claim(
     try:
         db.flush()
         add_audit(db, student.id, "PAYMENT_CLAIM_CREATED", "payment_claim", item.id)
+        from app.modules.notifications.service import enqueue_notification
+
+        teacher_id = db.scalar(select(User.id).where(User.role == UserRole.TEACHER))
+        if teacher_id is not None:
+            enqueue_notification(
+                db,
+                event_type="PAYMENT_CLAIM_CREATED",
+                aggregate_id=item.id,
+                recipient_user_id=teacher_id,
+                title="Новое заявление об оплате",
+                body="Ученик сообщил о переводе. Проверьте заявление в разделе финансов.",
+                target_type="PAYMENT_CLAIM",
+                target_id=item.id,
+            )
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -593,6 +607,18 @@ def confirm_payment_claim(
     claim.decided_by_user_id = teacher.id
     claim.decided_at = now
     add_audit(db, teacher.id, "PAYMENT_CLAIM_CONFIRMED", "payment_claim", claim.id)
+    from app.modules.notifications.service import enqueue_notification
+
+    enqueue_notification(
+        db,
+        event_type="PAYMENT_CONFIRMED",
+        aggregate_id=payment.id,
+        recipient_user_id=claim.submitted_by_user_id,
+        title="Перевод подтверждён",
+        body="Преподаватель подтвердил поступление средств.",
+        target_type="INVOICE",
+        target_id=invoice.id,
+    )
     try:
         db.commit()
     except IntegrityError as exc:
@@ -620,6 +646,21 @@ def reject_payment_claim(
     claim.decided_by_user_id = teacher.id
     claim.decided_at = utc_now()
     add_audit(db, teacher.id, "PAYMENT_CLAIM_REJECTED", "payment_claim", claim.id)
+    from app.modules.notifications.service import enqueue_notification
+
+    enqueue_notification(
+        db,
+        event_type="PAYMENT_REJECTED",
+        aggregate_id=claim.id,
+        recipient_user_id=claim.submitted_by_user_id,
+        title="Заявление об оплате отклонено",
+        body=(
+            "Откройте раздел финансов, чтобы увидеть решение и при необходимости "
+            "отправить новое заявление."
+        ),
+        target_type="INVOICE",
+        target_id=claim.invoice_id,
+    )
     db.commit()
     db.refresh(claim)
     return claim_response(db, claim)
