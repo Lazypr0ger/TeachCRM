@@ -9,6 +9,8 @@ from app.core.config import get_settings
 from app.core.db import create_db_engine, create_session_factory, database_is_ready
 from app.modules.auth.router import router as auth_router
 from app.modules.auth.teacher_router import router as teacher_auth_router
+from app.modules.billing.invoice_router import student_router as student_billing_router
+from app.modules.billing.invoice_router import teacher_router as teacher_invoice_router
 from app.modules.billing.router import router as teacher_billing_router
 from app.modules.files.router import router as files_router
 from app.modules.homework.router import student_router as student_homework_router
@@ -42,6 +44,8 @@ app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(teacher_auth_router)
 app.include_router(teacher_billing_router)
+app.include_router(teacher_invoice_router)
+app.include_router(student_billing_router)
 app.include_router(files_router)
 app.include_router(teacher_homework_router)
 app.include_router(student_homework_router)

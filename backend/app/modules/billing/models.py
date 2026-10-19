@@ -1,7 +1,18 @@
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Numeric, String
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.models import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -42,3 +53,51 @@ class BillingProfile(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
     version: Mapped[int] = mapped_column(default=1, nullable=False)
+
+
+class Invoice(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "invoices"
+    __table_args__ = (
+        CheckConstraint(
+            "billing_mode_snapshot IN ('PER_LESSON', 'MONTHLY')", name="ck_invoice_mode"
+        ),
+        CheckConstraint("currency = 'RUB'", name="ck_invoice_currency"),
+        CheckConstraint(
+            "subtotal >= 0 AND discount_amount >= 0 AND total >= 0", name="ck_invoice_amounts"
+        ),
+        CheckConstraint("discount_percent BETWEEN 0 AND 100", name="ck_invoice_discount"),
+    )
+
+    student_id: Mapped[UUID] = mapped_column(
+        ForeignKey("student_profiles.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    billing_mode_snapshot: Mapped[str] = mapped_column(String(16), nullable=False)
+    period_start: Mapped[date | None] = mapped_column(Date())
+    period_end: Mapped[date | None] = mapped_column(Date())
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    discount_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    discount_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    total: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+
+
+class InvoiceItem(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "invoice_items"
+    __table_args__ = (
+        CheckConstraint("kind IN ('LESSON', 'ADJUSTMENT')", name="ck_invoice_item_kind"),
+        CheckConstraint("quantity > 0", name="ck_invoice_item_quantity"),
+        UniqueConstraint("lesson_id", "kind", name="uq_invoice_item_lesson_kind"),
+    )
+
+    invoice_id: Mapped[UUID] = mapped_column(
+        ForeignKey("invoices.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    lesson_id: Mapped[UUID | None] = mapped_column(ForeignKey("lessons.id", ondelete="RESTRICT"))
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    description: Mapped[str] = mapped_column(Text(), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

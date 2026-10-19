@@ -1,13 +1,22 @@
+from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.modules.auth.models import StudentProfile, User
-from app.modules.auth.service import add_audit
-from app.modules.billing.models import BillingMode, BillingProfile
-from app.modules.billing.schemas import BillingProfileResponse, BillingProfileUpdateRequest
+from app.modules.auth.service import add_audit, expired, utc_now
+from app.modules.billing.models import BillingMode, BillingProfile, Invoice, InvoiceItem
+from app.modules.billing.schemas import (
+    BillingProfileResponse,
+    BillingProfileUpdateRequest,
+    BillingSummaryResponse,
+    InvoiceItemResponse,
+    InvoiceListResponse,
+    InvoiceResponse,
+)
+from app.modules.lessons.models import Lesson
 
 MONEY_QUANT = Decimal("0.01")
 
@@ -110,3 +119,129 @@ def upsert_billing_profile(
     db.commit()
     db.refresh(item)
     return profile_response(item)
+
+
+def invoice_response(db: Session, item: Invoice) -> InvoiceResponse:
+    lines = db.scalars(
+        select(InvoiceItem)
+        .where(InvoiceItem.invoice_id == item.id)
+        .order_by(InvoiceItem.created_at, InvoiceItem.id)
+    ).all()
+    allocated = Decimal("0.00")
+    outstanding = money_round(item.total - allocated)
+    status = (
+        "PAID" if outstanding == 0 else ("OVERDUE" if expired(item.due_at, utc_now()) else "UNPAID")
+    )
+    return InvoiceResponse(
+        id=item.id,
+        student_id=item.student_id,
+        billing_mode_snapshot=item.billing_mode_snapshot,
+        period_start=item.period_start.isoformat() if item.period_start else None,
+        period_end=item.period_end.isoformat() if item.period_end else None,
+        issued_at=item.issued_at,
+        due_at=item.due_at,
+        currency=item.currency,
+        subtotal=item.subtotal,
+        discount_percent=item.discount_percent,
+        discount_amount=item.discount_amount,
+        total=item.total,
+        allocated_total=allocated,
+        outstanding=outstanding,
+        status=status,
+        items=[
+            InvoiceItemResponse(
+                id=line.id,
+                lesson_id=line.lesson_id,
+                kind=line.kind,
+                description=line.description,
+                quantity=line.quantity,
+                unit_price=line.unit_price,
+                subtotal=line.subtotal,
+            )
+            for line in lines
+        ],
+    )
+
+
+def create_per_lesson_invoice(db: Session, lesson: Lesson, actor: User) -> Invoice | None:
+    existing = db.scalar(
+        select(Invoice)
+        .join(InvoiceItem, InvoiceItem.invoice_id == Invoice.id)
+        .where(InvoiceItem.lesson_id == lesson.id, InvoiceItem.kind == "LESSON")
+    )
+    if existing is not None:
+        return None
+    profile = db.scalar(
+        select(BillingProfile).where(BillingProfile.student_id == lesson.student_id)
+    )
+    if (
+        profile is None
+        or profile.billing_mode != BillingMode.PER_LESSON
+        or profile.price_per_lesson == 0
+        or lesson.completed_at is None
+    ):
+        return None
+    now = utc_now()
+    subtotal = money_round(profile.price_per_lesson)
+    discount = effective_discount(profile.billing_mode, profile.family_discount_enabled)
+    total = discounted_amount(subtotal, discount)
+    invoice = Invoice(
+        student_id=lesson.student_id,
+        billing_mode_snapshot=profile.billing_mode,
+        period_start=None,
+        period_end=None,
+        issued_at=now,
+        due_at=lesson.completed_at + timedelta(hours=48),
+        currency=profile.currency,
+        subtotal=subtotal,
+        discount_percent=discount * 100,
+        discount_amount=money_round(subtotal - total),
+        total=total,
+    )
+    db.add(invoice)
+    db.flush()
+    db.add(
+        InvoiceItem(
+            invoice_id=invoice.id,
+            lesson_id=lesson.id,
+            kind="LESSON",
+            description=f"Проведённый урок: {lesson.title}",
+            quantity=Decimal("1.00"),
+            unit_price=subtotal,
+            subtotal=subtotal,
+            created_at=now,
+        )
+    )
+    add_audit(db, actor.id, "INVOICE_CREATED", "invoice", invoice.id)
+    return invoice
+
+
+def list_invoices(db: Session, *, student_id: UUID | None = None) -> InvoiceListResponse:
+    query = select(Invoice)
+    count_query = select(func.count()).select_from(Invoice)
+    if student_id is not None:
+        query = query.where(Invoice.student_id == student_id)
+        count_query = count_query.where(Invoice.student_id == student_id)
+    items = db.scalars(query.order_by(Invoice.issued_at.desc(), Invoice.id)).all()
+    return InvoiceListResponse(
+        items=[invoice_response(db, item) for item in items],
+        total=db.scalar(count_query) or 0,
+    )
+
+
+def student_billing_summary(db: Session, user: User) -> BillingSummaryResponse:
+    profile = db.scalar(select(StudentProfile).where(StudentProfile.user_id == user.id))
+    if profile is None:
+        raise BillingProfileNotFoundError("Ученик не найден")
+    billing = db.scalar(select(BillingProfile).where(BillingProfile.student_id == profile.id))
+    invoices = list_invoices(db, student_id=profile.id).items
+    return BillingSummaryResponse(
+        profile=profile_response(billing) if billing else None,
+        accrued_total=money_round(sum((item.total for item in invoices), Decimal("0"))),
+        received_total=Decimal("0.00"),
+        outstanding_total=money_round(sum((item.outstanding for item in invoices), Decimal("0"))),
+        overdue_total=money_round(
+            sum((item.outstanding for item in invoices if item.status == "OVERDUE"), Decimal("0"))
+        ),
+        discount_total=money_round(sum((item.discount_amount for item in invoices), Decimal("0"))),
+    )

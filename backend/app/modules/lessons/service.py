@@ -260,6 +260,10 @@ def update_lesson(
 def complete_lesson(db: Session, lesson_id: UUID, teacher: User) -> LessonResponse:
     lesson, profile = get_lesson_row(db, lesson_id, for_update=True)
     if lesson.status == LessonStatus.COMPLETED:
+        from app.modules.billing.service import create_per_lesson_invoice
+
+        if create_per_lesson_invoice(db, lesson, teacher) is not None:
+            db.commit()
         return lesson_response(lesson, profile)
     if lesson.status == LessonStatus.CANCELLED:
         raise LessonStateError("Отменённый урок нельзя завершить")
@@ -270,6 +274,9 @@ def complete_lesson(db: Session, lesson_id: UUID, teacher: User) -> LessonRespon
 
     cancel_active_for_lesson(db, lesson.id)
     add_audit(db, teacher.id, "LESSON_COMPLETED", "lesson", lesson.id)
+    from app.modules.billing.service import create_per_lesson_invoice
+
+    create_per_lesson_invoice(db, lesson, teacher)
     db.commit()
     db.refresh(lesson)
     return lesson_response(lesson, profile)

@@ -199,9 +199,14 @@ a { color: inherit; }
 .stack-form label { display: grid; gap: 6px; }
 .homework-needs_response { background: #fff3d4; color: #7b5200; }
 .homework-accepted { background: #dff7e8; color: #17663a; }
+.summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.invoice-overdue { background: #ffe0dc; color: #8d271b; }
+.invoice-unpaid, .invoice-partially_paid { background: #fff3d4; color: #7b5200; }
+.invoice-paid { background: #dff7e8; color: #17663a; }
 
 @media (max-width: 760px) {
   .dashboard-shell { grid-template-columns: minmax(0, 440px); padding: 24px 16px; }
+  .summary-grid { grid-template-columns: 1fr; }
   .management-shell { padding: 24px 16px; }
   .filters-form, .student-row, .lesson-form, .availability-grid, .availability-form { grid-template-columns: 1fr; }
   .wide-field { grid-column: auto; }

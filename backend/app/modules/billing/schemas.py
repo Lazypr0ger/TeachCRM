@@ -36,3 +36,46 @@ class BillingProfileResponse(BaseModel):
     version: int
     created_at: datetime
     updated_at: datetime
+
+
+class InvoiceItemResponse(BaseModel):
+    id: UUID
+    lesson_id: UUID | None
+    kind: str
+    description: str
+    quantity: Decimal
+    unit_price: Decimal
+    subtotal: Decimal
+
+
+class InvoiceResponse(BaseModel):
+    id: UUID
+    student_id: UUID
+    billing_mode_snapshot: str
+    period_start: str | None
+    period_end: str | None
+    issued_at: datetime
+    due_at: datetime
+    currency: str
+    subtotal: Decimal
+    discount_percent: Decimal
+    discount_amount: Decimal
+    total: Decimal
+    allocated_total: Decimal
+    outstanding: Decimal
+    status: str
+    items: list[InvoiceItemResponse]
+
+
+class InvoiceListResponse(BaseModel):
+    items: list[InvoiceResponse]
+    total: int
+
+
+class BillingSummaryResponse(BaseModel):
+    profile: BillingProfileResponse | None
+    accrued_total: Decimal
+    received_total: Decimal
+    outstanding_total: Decimal
+    overdue_total: Decimal
+    discount_total: Decimal
