@@ -192,6 +192,13 @@ a { color: inherit; }
 .compact-button { min-height: 34px; margin-left: auto; padding: 5px 10px; }
 .file-picker { width: fit-content; }
 .file-picker input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+.homework-panel { display: grid; gap: 14px; margin-top: 18px; border-top: 1px solid var(--border); padding-top: 16px; }
+.homework-panel h3, .homework-panel h4, .homework-panel p { margin: 0; }
+.section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.stack-form, .homework-files, .submission-view { display: grid; gap: 12px; }
+.stack-form label { display: grid; gap: 6px; }
+.homework-needs_response { background: #fff3d4; color: #7b5200; }
+.homework-accepted { background: #dff7e8; color: #17663a; }
 
 @media (max-width: 760px) {
   .dashboard-shell { grid-template-columns: minmax(0, 440px); padding: 24px 16px; }

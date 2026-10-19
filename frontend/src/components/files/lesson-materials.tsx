@@ -1,8 +1,8 @@
 "use client";
 
 import { type ChangeEvent, useCallback, useEffect, useState } from "react";
-import { authenticatedJson, postAuthenticated, uploadAuthenticated } from "@/lib/auth-api";
-import { formatFileSize, type PrivateFile, type UploadTicket } from "@/lib/files";
+import { authenticatedJson } from "@/lib/auth-api";
+import { formatFileSize, type PrivateFile, uploadPrivateFile } from "@/lib/files";
 
 const accepted = ".pdf,.png,.jpg,.jpeg,.webp,.docx";
 
@@ -27,15 +27,7 @@ export function LessonMaterials({ lessonId, canUpload = false }: { lessonId: str
     setPending(true);
     setError("");
     try {
-      const ticket = await postAuthenticated<UploadTicket>("/api/v1/files/upload-init", {
-        purpose: "LESSON_MATERIAL",
-        target_type: "LESSON",
-        target_id: lessonId,
-        original_filename: file.name,
-        byte_size: file.size,
-      });
-      await uploadAuthenticated(ticket.upload_url, file);
-      await postAuthenticated<PrivateFile>(`/api/v1/files/upload-complete/${ticket.ticket_id}`);
+      await uploadPrivateFile("LESSON_MATERIAL", "LESSON", lessonId, file);
       await load();
       event.target.value = "";
     } catch (caught) {

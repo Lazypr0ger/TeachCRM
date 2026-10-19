@@ -49,7 +49,12 @@ def expired(value: datetime, now: datetime) -> bool:
 
 
 def add_audit(
-    db: Session, actor_id: UUID | None, action: str, entity_type: str, entity_id: UUID
+    db: Session,
+    actor_id: UUID | None,
+    action: str,
+    entity_type: str,
+    entity_id: UUID,
+    request_id: str | None = None,
 ) -> None:
     db.add(
         AuditLog(
@@ -57,6 +62,7 @@ def add_audit(
             action=action,
             entity_type=entity_type,
             entity_id=entity_id,
+            request_id=request_id,
             created_at=utc_now(),
         )
     )

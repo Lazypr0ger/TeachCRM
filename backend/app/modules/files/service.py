@@ -109,6 +109,8 @@ def ensure_lesson_access(db: Session, lesson_id: UUID, user: User) -> Lesson:
     lesson = db.get(Lesson, lesson_id)
     if lesson is None:
         raise FileNotFoundError("Урок не найден")
+    if user.role == UserRole.TEACHER and lesson.teacher_id != user.id:
+        raise FileNotFoundError("Урок не найден")
     if user.role == UserRole.STUDENT:
         profile = db.scalar(select(StudentProfile).where(StudentProfile.user_id == user.id))
         if profile is None or lesson.student_id != profile.id:
@@ -117,11 +119,35 @@ def ensure_lesson_access(db: Session, lesson_id: UUID, user: User) -> Lesson:
 
 
 def validate_upload_target(db: Session, payload: UploadInitRequest, user: User) -> None:
-    if payload.purpose != FilePurpose.LESSON_MATERIAL or payload.target_type != "LESSON":
-        raise FileValidationError("Этот тип вложения пока недоступен")
-    if user.role != UserRole.TEACHER:
-        raise FilePermissionError("Только преподаватель добавляет материалы урока")
-    ensure_lesson_access(db, payload.target_id, user)
+    if payload.purpose == FilePurpose.LESSON_MATERIAL and payload.target_type == "LESSON":
+        if user.role != UserRole.TEACHER:
+            raise FilePermissionError("Только преподаватель добавляет материалы урока")
+        ensure_lesson_access(db, payload.target_id, user)
+        return
+    if payload.target_type == "ASSIGNMENT" and payload.purpose in {
+        FilePurpose.ASSIGNMENT_MATERIAL,
+        FilePurpose.HOMEWORK,
+    }:
+        from app.modules.homework.models import Assignment, HomeworkSubmission
+
+        assignment = db.get(Assignment, payload.target_id)
+        if assignment is None:
+            raise FileNotFoundError("Задание не найдено")
+        ensure_lesson_access(db, assignment.lesson_id, user)
+        if payload.purpose == FilePurpose.ASSIGNMENT_MATERIAL:
+            if user.role != UserRole.TEACHER:
+                raise FilePermissionError("Материалы задания добавляет преподаватель")
+        else:
+            if user.role != UserRole.STUDENT:
+                raise FilePermissionError("Ответ на задание загружает ученик")
+            if db.scalar(
+                select(HomeworkSubmission.id).where(
+                    HomeworkSubmission.assignment_id == assignment.id
+                )
+            ):
+                raise FileConflictError("Ответ на это задание уже отправлен")
+        return
+    raise FileValidationError("Тип вложения не соответствует объекту")
 
 
 def file_response(item: StoredFile) -> FileResponse:
@@ -151,7 +177,9 @@ def initiate_upload(
             .where(
                 FileLink.entity_type == payload.target_type,
                 FileLink.entity_id == payload.target_id,
+                StoredFile.purpose == payload.purpose,
             )
+            .join(StoredFile, StoredFile.id == FileLink.file_id)
         )
         or 0
     )
@@ -162,6 +190,7 @@ def initiate_upload(
             .where(
                 FileUploadTicket.target_type == payload.target_type,
                 FileUploadTicket.target_id == payload.target_id,
+                FileUploadTicket.purpose == payload.purpose,
                 FileUploadTicket.status != UploadStatus.COMPLETED,
                 FileUploadTicket.expires_at > utc_now(),
             )
@@ -316,7 +345,7 @@ def list_lesson_files(db: Session, lesson_id: UUID, user: User) -> list[FileResp
     return [file_response(item) for item in items]
 
 
-def get_authorized_file(db: Session, file_id: UUID, user: User) -> StoredFile:
+def get_authorized_file_link(db: Session, file_id: UUID, user: User) -> tuple[StoredFile, FileLink]:
     row = db.execute(
         select(StoredFile, FileLink)
         .join(FileLink, FileLink.file_id == StoredFile.id)
@@ -327,15 +356,45 @@ def get_authorized_file(db: Session, file_id: UUID, user: User) -> StoredFile:
     item, link = row
     if link.entity_type == "LESSON":
         ensure_lesson_access(db, link.entity_id, user)
+    elif link.entity_type == "ASSIGNMENT":
+        from app.modules.homework.models import Assignment
+
+        assignment = db.get(Assignment, link.entity_id)
+        if assignment is None:
+            raise FileNotFoundError("Файл не найден")
+        ensure_lesson_access(db, assignment.lesson_id, user)
+        if item.purpose == FilePurpose.HOMEWORK and item.owner_user_id != user.id:
+            raise FileNotFoundError("Файл не найден")
+    elif link.entity_type == "SUBMISSION":
+        from app.modules.homework.models import Assignment, HomeworkSubmission
+
+        submission = db.get(HomeworkSubmission, link.entity_id)
+        assignment = db.get(Assignment, submission.assignment_id) if submission else None
+        if assignment is None:
+            raise FileNotFoundError("Файл не найден")
+        ensure_lesson_access(db, assignment.lesson_id, user)
     else:
         raise FileNotFoundError("Файл не найден")
-    return item
+    return item, link
+
+
+def get_authorized_file(db: Session, file_id: UUID, user: User) -> StoredFile:
+    return get_authorized_file_link(db, file_id, user)[0]
 
 
 def delete_file(db: Session, file_id: UUID, user: User, storage: ObjectStorage) -> None:
-    item = get_authorized_file(db, file_id, user)
-    if user.role != UserRole.TEACHER:
-        raise FilePermissionError("Удалять материалы урока может только преподаватель")
+    item, link = get_authorized_file_link(db, file_id, user)
+    teacher_file = item.purpose in {
+        FilePurpose.LESSON_MATERIAL,
+        FilePurpose.ASSIGNMENT_MATERIAL,
+    }
+    student_draft = item.purpose == FilePurpose.HOMEWORK and link.entity_type == "ASSIGNMENT"
+    if (teacher_file and user.role != UserRole.TEACHER) or (
+        student_draft and user.role != UserRole.STUDENT
+    ):
+        raise FilePermissionError("Удалять этот файл нельзя")
+    if not teacher_file and not student_draft:
+        raise FilePermissionError("Финальный ответ нельзя изменить")
     storage_key = item.storage_key
     add_audit(db, user.id, "FILE_DELETED", "file", item.id)
     db.delete(item)
