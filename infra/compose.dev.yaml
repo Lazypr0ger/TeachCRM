@@ -50,11 +50,17 @@ services:
       APP_ENV: development
       APP_TIMEZONE: Europe/Moscow
       DATABASE_URL: postgresql+psycopg://tutorcrm:tutorcrm-dev-only@postgres:5432/tutorcrm
+      S3_ENDPOINT: http://s3:4566
+      S3_BUCKET: tutorcrm-private
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully
+      s3:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
       interval: 5s
@@ -68,10 +74,16 @@ services:
       APP_ENV: development
       APP_TIMEZONE: Europe/Moscow
       DATABASE_URL: postgresql+psycopg://tutorcrm:tutorcrm-dev-only@postgres:5432/tutorcrm
+      S3_ENDPOINT: http://s3:4566
+      S3_BUCKET: tutorcrm-private
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
     command: ["python", "-m", "app.workers.main"]
     depends_on:
       migrate:
         condition: service_completed_successfully
+      s3:
+        condition: service_healthy
 
   frontend:
     build:

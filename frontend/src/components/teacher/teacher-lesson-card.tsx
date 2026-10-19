@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { authenticatedJson, postAuthenticated } from "@/lib/auth-api";
+import { LessonMaterials } from "@/components/files/lesson-materials";
 import {
   formatMoscow,
   fromMoscowInput,
@@ -69,6 +70,7 @@ export function TeacherLessonCard({ lesson }: { lesson: Lesson }) {
       <p><strong>{formatMoscow(lesson.starts_at)}–{new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", timeStyle: "short" }).format(new Date(lesson.ends_at))}</strong></p>
       {lesson.description ? <p>{lesson.description}</p> : null}
       {lesson.join_url ? <a className="text-link" href={lesson.join_url} target="_blank" rel="noreferrer">Открыть ссылку подключения</a> : <p>Ссылка подключения не указана.</p>}
+      <LessonMaterials lessonId={lesson.id} canUpload />
       {error ? <p className="form-error" role="alert">{error}</p> : null}
       {lesson.status === "SCHEDULED" ? <div className="card-actions"><button className="secondary-button" disabled={pending} onClick={() => setEditing(true)} type="button">Изменить</button><button className="primary-button" disabled={pending} onClick={() => transition("complete")} type="button">Проведён</button><button className="danger-button" disabled={pending} onClick={() => transition("cancel")} type="button">Отменить</button></div> : null}
     </>}

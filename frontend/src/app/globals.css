@@ -184,6 +184,14 @@ a { color: inherit; }
 .request-card { display: grid; gap: 14px; border-top: 1px solid var(--border); padding-top: 16px; }
 .request-card p { color: var(--text-muted); line-height: 1.45; }
 .counter-form { margin-top: 16px; }
+.lesson-materials { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 16px; }
+.lesson-materials h3 { margin: 0 0 12px; }
+.file-list { display: grid; gap: 9px; margin: 0 0 14px; padding: 0; list-style: none; }
+.file-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.file-list small { color: var(--text-muted); }
+.compact-button { min-height: 34px; margin-left: auto; padding: 5px 10px; }
+.file-picker { width: fit-content; }
+.file-picker input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
 
 @media (max-width: 760px) {
   .dashboard-shell { grid-template-columns: minmax(0, 440px); padding: 24px 16px; }

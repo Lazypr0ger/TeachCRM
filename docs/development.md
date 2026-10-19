@@ -11,12 +11,17 @@ uv run mypy app
 uv run uvicorn app.main:app --reload
 ```
 
-Worker достраивает активные серии уроков на 12 недель вперёд:
+Worker достраивает активные серии уроков на 12 недель вперёд и удаляет истёкшие
+временные загрузки из приватного S3-хранилища:
 
 ```bash
 cd backend
 uv run python -m app.workers.main
 ```
+
+Для локального S3 используется LocalStack. Compose создаёт приватный bucket
+`tutorcrm-private` скриптом `infra/localstack/init-s3.sh`. Разрешены PDF, PNG,
+JPEG, WebP и DOCX до 15 МБ; на один объект можно прикрепить до 10 файлов.
 
 В локальной среде пароль преподавателя создаётся интерактивно:
 
