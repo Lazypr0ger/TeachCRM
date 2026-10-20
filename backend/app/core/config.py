@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     file_max_bytes: int = 15 * 1024 * 1024
     file_max_per_target: int = 10
     upload_ticket_ttl_minutes: int = 30
+    trial_booking_enabled: bool = False
     database_url: str = Field(
         default="postgresql+psycopg://tutorcrm:tutorcrm-dev-only@localhost:5432/tutorcrm"
     )

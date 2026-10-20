@@ -29,5 +29,8 @@ export function notificationTarget(
   if (item.target_type === "INVOICE" || item.target_type === "PAYMENT_CLAIM") {
     return role === "STUDENT" ? "/student/billing" : "/teacher/finances";
   }
+  if (item.target_type === "TRIAL_REQUEST" && role === "TEACHER") {
+    return "/teacher/trials";
+  }
   return null;
 }

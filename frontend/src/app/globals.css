@@ -213,6 +213,25 @@ a { color: inherit; }
 .notification-card h2 { margin: 0; font-size: 20px; }
 .notification-card p { color: var(--text-muted); }
 .notification-unread { border-color: var(--info); }
+.public-shell { width: min(1120px, 100%); min-height: 100vh; margin: auto; padding: 24px; }
+.public-nav { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.public-nav > div { display: flex; align-items: center; gap: 18px; }
+.public-nav a:not(.secondary-button) { color: var(--text-muted); text-decoration: none; }
+.public-hero { max-width: 800px; padding: 96px 0 64px; }
+.public-hero h1 { margin: 0; font-size: clamp(40px, 7vw, 72px); line-height: 1.05; }
+.public-hero > p:not(.eyebrow) { max-width: 680px; color: var(--text-muted); font-size: 18px; line-height: 1.65; }
+.public-capabilities { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.public-capabilities p { color: var(--text-muted); line-height: 1.5; }
+.public-trial { display: grid; grid-template-columns: .8fr 1.2fr; gap: 32px; margin: 72px 0; align-items: start; }
+.public-disabled { margin: 64px 0; }
+.honeypot { position: absolute !important; left: -10000px !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
+.trial-list { display: grid; gap: 16px; margin: 20px 0; }
+.trial-actions { display: grid; gap: 12px; margin-top: 18px; border-top: 1px solid var(--border); padding-top: 18px; }
+.warning-text { color: var(--warning) !important; }
+.trial-new, .trial-in_review, .trial-reschedule_requested { background: color-mix(in srgb, var(--warning) 20%, transparent); color: var(--warning); }
+.trial-confirmed { background: color-mix(in srgb, var(--info) 20%, transparent); color: var(--info); }
+.trial-completed { background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success); }
+.trial-rejected, .trial-cancelled { background: color-mix(in srgb, var(--danger) 20%, transparent); color: var(--danger); }
 
 @media (max-width: 760px) {
   .dashboard-shell { grid-template-columns: minmax(0, 440px); padding: 24px 16px; }
@@ -220,6 +239,9 @@ a { color: inherit; }
   .management-shell { padding: 24px 16px; }
   .filters-form, .student-row, .lesson-form, .availability-grid, .availability-form { grid-template-columns: 1fr; }
   .notification-card { align-items: stretch; flex-direction: column; }
+  .public-nav > div > a:not(.secondary-button) { display: none; }
+  .public-hero { padding: 64px 0 40px; }
+  .public-capabilities, .public-trial { grid-template-columns: 1fr; }
   .wide-field { grid-column: auto; }
   .dashboard-wide { grid-column: auto; }
   .lesson-card-heading { align-items: start; flex-direction: column; }

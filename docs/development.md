@@ -20,6 +20,13 @@ cd backend
 uv run python -m app.workers.main
 ```
 
+Публичная форма пробной заявки выключена по умолчанию. Для локальной проверки
+включите её перед запуском compose:
+
+```bash
+TRIAL_BOOKING_ENABLED=true docker compose -f infra/compose.dev.yaml up --build
+```
+
 Для локального S3 используется LocalStack. Compose создаёт приватный bucket
 `tutorcrm-private` скриптом `infra/localstack/init-s3.sh`. Разрешены PDF, PNG,
 JPEG, WebP и DOCX до 15 МБ; на один объект можно прикрепить до 10 файлов.

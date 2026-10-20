@@ -49,6 +49,7 @@ services:
     environment:
       APP_ENV: development
       APP_TIMEZONE: Europe/Moscow
+      TRIAL_BOOKING_ENABLED: ${TRIAL_BOOKING_ENABLED:-false}
       DATABASE_URL: postgresql+psycopg://tutorcrm:tutorcrm-dev-only@postgres:5432/tutorcrm
       S3_ENDPOINT: http://s3:4566
       S3_BUCKET: tutorcrm-private

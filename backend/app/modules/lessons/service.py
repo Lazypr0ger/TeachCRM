@@ -92,6 +92,7 @@ def ensure_no_overlap(
     ends_at: datetime,
     exclude_id: UUID | None = None,
 ) -> None:
+    db.scalar(select(User.id).where(User.id == teacher_id).with_for_update())
     query = select(Lesson.id).where(
         Lesson.status == LessonStatus.SCHEDULED,
         Lesson.starts_at < ends_at,
@@ -100,7 +101,19 @@ def ensure_no_overlap(
     )
     if exclude_id is not None:
         query = query.where(Lesson.id != exclude_id)
-    if db.scalar(query.limit(1)) is not None:
+    from app.modules.trials.models import TrialRequest, TrialStatus
+
+    trial_conflict = db.scalar(
+        select(TrialRequest.id)
+        .where(
+            TrialRequest.teacher_id == teacher_id,
+            TrialRequest.status == TrialStatus.CONFIRMED,
+            TrialRequest.confirmed_start < ends_at,
+            TrialRequest.confirmed_end > starts_at,
+        )
+        .limit(1)
+    )
+    if db.scalar(query.limit(1)) is not None or trial_conflict is not None:
         raise LessonConflictError("Время пересекается с другим запланированным уроком")
 
 
