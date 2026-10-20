@@ -16,6 +16,40 @@
   --danger: #e56d68;
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f4f1;
+  --surface: #ffffff;
+  --surface-hover: #eceae5;
+  --border: #d0cec8;
+  --text: #202124;
+  --text-muted: #62666d;
+  --accent: #d93e28;
+  --accent-hover: #ba321f;
+  --info: #176b9d;
+  --success: #287758;
+  --warning: #8a5b08;
+  --danger: #a5342f;
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    color-scheme: light;
+    --bg: #f5f4f1;
+    --surface: #ffffff;
+    --surface-hover: #eceae5;
+    --border: #d0cec8;
+    --text: #202124;
+    --text-muted: #62666d;
+    --accent: #d93e28;
+    --accent-hover: #ba321f;
+    --info: #176b9d;
+    --success: #287758;
+    --warning: #8a5b08;
+    --danger: #a5342f;
+  }
+}
+
 * { box-sizing: border-box; }
 
 html, body { margin: 0; min-height: 100%; }
@@ -232,6 +266,9 @@ a { color: inherit; }
 .trial-confirmed { background: color-mix(in srgb, var(--info) 20%, transparent); color: var(--info); }
 .trial-completed { background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success); }
 .trial-rejected, .trial-cancelled { background: color-mix(in srgb, var(--danger) 20%, transparent); color: var(--danger); }
+.theme-picker { position: fixed; z-index: 30; top: 12px; right: 12px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 6px 8px; font-size: 12px; }
+.theme-picker select { border: 0; background: var(--surface); color: var(--text); font: inherit; }
+.mobile-navigation { display: none; }
 
 @media (max-width: 760px) {
   .dashboard-shell { grid-template-columns: minmax(0, 440px); padding: 24px 16px; }
@@ -242,6 +279,11 @@ a { color: inherit; }
   .public-nav > div > a:not(.secondary-button) { display: none; }
   .public-hero { padding: 64px 0 40px; }
   .public-capabilities, .public-trial { grid-template-columns: 1fr; }
+  .management-shell, .dashboard-shell { padding-bottom: 100px; }
+  .theme-picker { top: auto; right: 12px; bottom: 74px; }
+  .mobile-navigation { position: fixed; z-index: 25; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 8px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); border-top: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(14px); }
+  .mobile-navigation a { min-height: 44px; display: grid; place-items: center; padding: 4px; color: var(--text-muted); font-size: 11px; text-align: center; text-decoration: none; }
+  .mobile-navigation a.active { color: var(--accent); font-weight: 700; }
   .wide-field { grid-column: auto; }
   .dashboard-wide { grid-column: auto; }
   .lesson-card-heading { align-items: start; flex-direction: column; }
