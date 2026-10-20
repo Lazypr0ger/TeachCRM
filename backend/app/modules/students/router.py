@@ -1,12 +1,24 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 
 from app.modules.auth.dependencies import DbSession, TeacherCsrfUser, TeacherUser
-from app.modules.students.schemas import StudentDetail, StudentListResponse, StudentUpdateRequest
+from app.modules.auth.schemas import MessageResponse
+from app.modules.files.storage import ObjectStorage, get_storage
+from app.modules.students.schemas import (
+    StudentAnonymizeRequest,
+    StudentDetail,
+    StudentListResponse,
+    StudentUpdateRequest,
+)
 from app.modules.students.service import (
+    StudentAnonymizeError,
     StudentNotFoundError,
+    anonymize_student,
+    export_student_data,
     get_student,
     list_students,
     student_detail,
@@ -14,6 +26,7 @@ from app.modules.students.service import (
 )
 
 router = APIRouter(prefix="/api/v1/teacher/students", tags=["teacher-students"])
+Storage = Annotated[ObjectStorage, Depends(get_storage)]
 
 
 @router.get("", response_model=StudentListResponse)
@@ -63,3 +76,40 @@ def edit_student(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Ученик не найден"
         ) from exc
+
+
+@router.get("/{student_id}/export")
+def export_student(student_id: UUID, teacher: TeacherUser, db: DbSession) -> JSONResponse:
+    try:
+        data = export_student_data(db, student_id, teacher)
+    except StudentNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ученик не найден"
+        ) from exc
+    return JSONResponse(
+        content=jsonable_encoder(data),
+        headers={
+            "Content-Disposition": f'attachment; filename="student-{student_id}.json"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.post("/{student_id}/anonymize", response_model=MessageResponse)
+def anonymize(
+    student_id: UUID,
+    payload: StudentAnonymizeRequest,
+    teacher: TeacherCsrfUser,
+    db: DbSession,
+    storage: Storage,
+) -> MessageResponse:
+    try:
+        anonymize_student(db, student_id, payload.confirmation, teacher, storage)
+    except StudentNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ученик не найден"
+        ) from exc
+    except StudentAnonymizeError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return MessageResponse(message="Данные ученика анонимизированы")

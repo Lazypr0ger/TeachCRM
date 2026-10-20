@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { StudentCardForm } from "@/components/teacher/student-card-form";
 import { BillingProfileForm } from "@/components/teacher/billing-profile-form";
+import { StudentPrivacyActions } from "@/components/teacher/student-privacy-actions";
 import { requireRole, serverGet } from "@/lib/server-auth";
 import { type Student, studentStatus } from "@/lib/students";
 
@@ -14,5 +15,6 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
     </header>
     <StudentCardForm student={student} />
     <BillingProfileForm studentId={student.id} />
+    <StudentPrivacyActions studentId={student.id} login={student.login} />
   </main>;
 }

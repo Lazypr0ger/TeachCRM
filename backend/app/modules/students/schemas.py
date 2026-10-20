@@ -60,3 +60,7 @@ class OwnStudentProfile(BaseModel):
 
 class OwnStudentProfileUpdate(StudentUpdateRequest):
     pass
+
+
+class StudentAnonymizeRequest(BaseModel):
+    confirmation: str = Field(min_length=3, max_length=120)
