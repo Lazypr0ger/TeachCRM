@@ -5,7 +5,13 @@ from sqlalchemy.orm import Session
 
 from app.modules.auth.models import StudentProfile, User, UserRole
 from app.modules.auth.service import add_audit
-from app.modules.students.schemas import StudentDetail, StudentSummary, StudentUpdateRequest
+from app.modules.students.schemas import (
+    OwnStudentProfile,
+    OwnStudentProfileUpdate,
+    StudentDetail,
+    StudentSummary,
+    StudentUpdateRequest,
+)
 
 
 class StudentNotFoundError(Exception):
@@ -107,3 +113,42 @@ def update_student(
     db.commit()
     db.refresh(profile)
     return student_detail(profile, user)
+
+
+def own_profile(db: Session, user: User, *, for_update: bool = False) -> StudentProfile:
+    query = select(StudentProfile).where(StudentProfile.user_id == user.id)
+    if for_update:
+        query = query.with_for_update()
+    profile = db.scalar(query)
+    if profile is None:
+        raise StudentNotFoundError
+    return profile
+
+
+def own_profile_response(profile: StudentProfile) -> OwnStudentProfile:
+    return OwnStudentProfile(
+        id=profile.id,
+        first_name=profile.first_name,
+        last_name=profile.last_name,
+        patronymic=profile.patronymic,
+        grade=profile.grade,
+        updated_at=profile.updated_at,
+    )
+
+
+def update_own_profile(
+    db: Session,
+    payload: OwnStudentProfileUpdate,
+    user: User,
+) -> OwnStudentProfile:
+    profile = own_profile(db, user, for_update=True)
+    changes = payload.model_dump(exclude_unset=True)
+    for field in ("first_name", "last_name", "patronymic"):
+        if field in changes and changes[field] is not None:
+            changes[field] = changes[field].strip()
+    for field, value in changes.items():
+        setattr(profile, field, None if field == "patronymic" and value == "" else value)
+    add_audit(db, user.id, "STUDENT_PROFILE_UPDATED", "student_profile", profile.id)
+    db.commit()
+    db.refresh(profile)
+    return own_profile_response(profile)

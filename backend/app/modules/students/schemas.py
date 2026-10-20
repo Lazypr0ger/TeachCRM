@@ -47,3 +47,16 @@ class StudentDetail(StudentSummary):
     activated_at: datetime | None
     last_login_at: datetime | None
     updated_at: datetime
+
+
+class OwnStudentProfile(BaseModel):
+    id: UUID
+    first_name: str
+    last_name: str
+    patronymic: str | None
+    grade: int | None
+    updated_at: datetime
+
+
+class OwnStudentProfileUpdate(StudentUpdateRequest):
+    pass

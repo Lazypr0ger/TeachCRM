@@ -27,6 +27,7 @@ from app.modules.scheduling.reschedule_router import teacher_router as teacher_r
 from app.modules.scheduling.student_router import router as student_schedule_router
 from app.modules.scheduling.teacher_router import router as teacher_availability_router
 from app.modules.students.router import router as teacher_students_router
+from app.modules.students.student_router import router as student_profile_router
 from app.modules.trials.router import public_router as public_trials_router
 from app.modules.trials.router import teacher_router as teacher_trials_router
 
@@ -58,6 +59,7 @@ app.include_router(teacher_homework_router)
 app.include_router(student_homework_router)
 app.include_router(notifications_router)
 app.include_router(teacher_students_router)
+app.include_router(student_profile_router)
 app.include_router(teacher_lessons_router)
 app.include_router(student_lessons_router)
 app.include_router(teacher_dashboard_router)
