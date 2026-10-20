@@ -248,3 +248,11 @@ def test_final_submission_is_atomic_idempotent_and_immutable(
     assert result.json()["submission"]["answer_text"] == "Готово"
     assert auth_context.client.get(draft["download_url"]).content == b"%PDF-1.7\nprivate-homework"
     assert auth_context.client.get(photo["download_url"]).content == photo_content
+    summaries = auth_context.client.get(
+        f"/api/v1/teacher/students/{student['student_id']}/homework"
+    )
+    assert summaries.status_code == 200
+    assert {item["lesson_id"]: item["state"] for item in summaries.json()} == {
+        first_lesson["id"]: "ACCEPTED",
+        second_lesson["id"]: "NEEDS_RESPONSE",
+    }

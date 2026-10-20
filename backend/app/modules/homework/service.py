@@ -14,6 +14,7 @@ from app.modules.homework.schemas import (
     AssignmentResponse,
     AssignmentUpdateRequest,
     HomeworkResponse,
+    StudentHomeworkSummary,
     SubmissionCreateRequest,
     SubmissionResponse,
 )
@@ -34,6 +35,41 @@ class HomeworkConflictError(HomeworkError):
 
 class HomeworkValidationError(HomeworkError):
     pass
+
+
+def list_student_homework(
+    db: Session, student_id: UUID, teacher: User
+) -> list[StudentHomeworkSummary]:
+    if db.get(StudentProfile, student_id) is None:
+        raise HomeworkNotFoundError("Ученик не найден")
+    rows = db.execute(
+        select(Lesson, Assignment, HomeworkSubmission)
+        .outerjoin(Assignment, Assignment.lesson_id == Lesson.id)
+        .outerjoin(HomeworkSubmission, HomeworkSubmission.assignment_id == Assignment.id)
+        .where(Lesson.student_id == student_id, Lesson.teacher_id == teacher.id)
+        .order_by(Lesson.starts_at.desc())
+    ).all()
+    result: list[StudentHomeworkSummary] = []
+    for lesson, assignment, submission in rows:
+        state = (
+            "NO_HOMEWORK"
+            if assignment is None
+            else "ACCEPTED"
+            if submission is not None
+            else "NEEDS_RESPONSE"
+        )
+        result.append(
+            StudentHomeworkSummary(
+                lesson_id=lesson.id,
+                lesson_title=lesson.title,
+                lesson_starts_at=lesson.starts_at,
+                state=state,
+                assignment_description=assignment.description if assignment else None,
+                due_at=assignment.due_at if assignment else None,
+                submitted_at=submission.submitted_at if submission else None,
+            )
+        )
+    return result
 
 
 def ensure_homework_lesson(db: Session, lesson_id: UUID, user: User) -> None:

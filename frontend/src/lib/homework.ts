@@ -26,6 +26,16 @@ export type Homework = {
   draft_files: PrivateFile[];
 };
 
+export type StudentHomeworkSummary = {
+  lesson_id: string;
+  lesson_title: string;
+  lesson_starts_at: string;
+  state: Homework["state"];
+  assignment_description: string | null;
+  due_at: string | null;
+  submitted_at: string | null;
+};
+
 export const homeworkState: Record<Homework["state"], string> = {
   NO_HOMEWORK: "Без домашнего задания",
   NEEDS_RESPONSE: "Ожидает ответа",

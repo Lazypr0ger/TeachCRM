@@ -13,6 +13,7 @@ from app.modules.homework.schemas import (
     AssignmentCreateRequest,
     AssignmentUpdateRequest,
     HomeworkResponse,
+    StudentHomeworkSummary,
     SubmissionCreateRequest,
     SubmissionResponse,
 )
@@ -23,6 +24,7 @@ from app.modules.homework.service import (
     create_assignment,
     create_submission,
     get_homework,
+    list_student_homework,
     update_assignment,
 )
 
@@ -46,6 +48,18 @@ def homework_http_error(exc: Exception) -> HTTPException:
 def teacher_homework(lesson_id: UUID, teacher: TeacherUser, db: DbSession) -> HomeworkResponse:
     try:
         return get_homework(db, lesson_id, teacher)
+    except HomeworkNotFoundError as exc:
+        raise homework_http_error(exc) from exc
+
+
+@teacher_router.get(
+    "/students/{student_id}/homework", response_model=list[StudentHomeworkSummary]
+)
+def teacher_student_homework(
+    student_id: UUID, teacher: TeacherUser, db: DbSession
+) -> list[StudentHomeworkSummary]:
+    try:
+        return list_student_homework(db, student_id, teacher)
     except HomeworkNotFoundError as exc:
         raise homework_http_error(exc) from exc
 

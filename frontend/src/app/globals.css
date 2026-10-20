@@ -390,6 +390,37 @@ a { color: inherit; }
 .student-identity > span:last-child { display: grid; gap: 3px; }
 .student-identity small, .muted-value { color: var(--text-muted); }
 .debt-value { color: var(--warning); font-variant-numeric: tabular-nums; font-weight: 700; }
+.drawer-backdrop { position: fixed; z-index: 85; inset: 0; background: rgb(0 0 0 / 55%); }
+.right-drawer { position: absolute; top: 0; right: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(560px, 100%); height: 100%; border-left: 1px solid var(--border); background: var(--bg); box-shadow: -24px 0 80px rgb(0 0 0 / 35%); }
+.drawer-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--border); padding: 18px 20px; }
+.drawer-header h2, .drawer-header p { margin: 0; }
+.drawer-content { overflow-y: auto; padding: 20px; }
+.drawer-content > * + * { margin-top: 16px; }
+.student-profile-page { width: min(1320px, 100%); }
+.student-profile-hero { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto auto; align-items: center; gap: 18px; margin-top: 18px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); padding: 24px; }
+.student-profile-hero h1 { margin: 2px 0 6px; font-size: clamp(28px, 3vw, 38px); }
+.student-profile-hero p { margin: 0; color: var(--text-muted); }
+.profile-avatar { display: grid; width: 76px; height: 76px; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--accent) 20%, var(--surface)); color: var(--accent); font-size: 24px; font-weight: 800; }
+.profile-tabs { display: flex; gap: 4px; margin: 18px 0; overflow-x: auto; border-bottom: 1px solid var(--border); }
+.profile-tabs a { min-height: 44px; border-bottom: 2px solid transparent; color: var(--text-muted); padding: 11px 16px; text-decoration: none; white-space: nowrap; }
+.profile-tabs a.active { border-color: var(--accent); color: var(--text); font-weight: 700; }
+.profile-stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+.profile-overview-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr); gap: 16px; }
+.profile-details { display: grid; gap: 0; margin: 0; }
+.profile-details > div { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 16px; border-top: 1px solid var(--border); padding: 14px 0; }
+.profile-details dt { color: var(--text-muted); }
+.profile-details dd { margin: 0; font-weight: 650; }
+.profile-next-lesson { margin-top: 16px; }
+.profile-next-lesson h3 { margin: 8px 0; font-size: 22px; }
+.profile-next-lesson .primary-link { width: fit-content; }
+.profile-list-section { margin-top: 0; }
+.profile-record-list { display: grid; margin-top: 14px; }
+.profile-record-list article { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid var(--border); padding: 16px 0; }
+.profile-record-list article > div { display: grid; gap: 5px; }
+.profile-record-list small { color: var(--text-muted); }
+.profile-record-list p { margin: 4px 0; }
+.honest-placeholder { text-align: center; }
+.honest-placeholder p:last-child { max-width: 620px; margin: 12px auto 0; color: var(--text-muted); line-height: 1.6; }
 .calendar-section { margin: 20px 0; overflow: hidden; }
 .calendar-heading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .calendar-heading h2 { margin: 0; }
@@ -441,6 +472,13 @@ a { color: inherit; }
   .student-table td:first-child { justify-content: flex-start; text-align: left; }
   .student-table td:first-child::before { display: none; }
   .student-table td:last-child .secondary-button { width: 100%; }
+  .student-profile-hero { grid-template-columns: 58px minmax(0, 1fr); padding: 18px; }
+  .profile-avatar { width: 58px; height: 58px; font-size: 18px; }
+  .student-profile-hero > .status, .student-profile-hero > .primary-button { grid-column: 1 / -1; width: fit-content; }
+  .profile-stat-grid, .profile-overview-grid { grid-template-columns: 1fr; }
+  .profile-details > div { grid-template-columns: 110px minmax(0, 1fr); }
+  .profile-record-list article { align-items: flex-start; flex-direction: column; }
+  .right-drawer { width: 100%; }
   .dashboard-shell { grid-template-columns: minmax(0, 440px); padding: 24px 16px; }
   .summary-grid { grid-template-columns: 1fr; }
   .management-shell { padding: 24px 16px; }

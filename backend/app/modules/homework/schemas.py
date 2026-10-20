@@ -99,3 +99,13 @@ class HomeworkResponse(BaseModel):
     assignment: AssignmentResponse | None
     submission: SubmissionResponse | None
     draft_files: list[FileResponse] = Field(default_factory=list)
+
+
+class StudentHomeworkSummary(BaseModel):
+    lesson_id: UUID
+    lesson_title: str
+    lesson_starts_at: datetime
+    state: str
+    assignment_description: str | None
+    due_at: datetime | None
+    submitted_at: datetime | None
