@@ -7,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import get_settings
 from app.core.db import create_db_engine, create_session_factory, database_is_ready
+from app.core.observability import configure_logging, observe_request
 from app.modules.auth.router import router as auth_router
 from app.modules.auth.teacher_router import router as teacher_auth_router
 from app.modules.billing.invoice_router import student_router as student_billing_router
@@ -30,6 +31,7 @@ from app.modules.site_settings.router import public_router as public_site_router
 from app.modules.site_settings.router import teacher_router as teacher_site_router
 from app.modules.students.router import router as teacher_students_router
 from app.modules.students.student_router import router as student_profile_router
+from app.modules.system.router import router as teacher_system_router
 from app.modules.trials.router import public_router as public_trials_router
 from app.modules.trials.router import teacher_router as teacher_trials_router
 
@@ -48,7 +50,9 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
 
 settings = get_settings()
+configure_logging()
 app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+app.middleware("http")(observe_request)
 app.include_router(auth_router)
 app.include_router(teacher_auth_router)
 app.include_router(teacher_billing_router)
@@ -74,6 +78,7 @@ app.include_router(public_site_router)
 app.include_router(teacher_site_router)
 app.include_router(public_trials_router)
 app.include_router(teacher_trials_router)
+app.include_router(teacher_system_router)
 
 
 @app.get("/health/live", response_model=HealthResponse, tags=["health"])

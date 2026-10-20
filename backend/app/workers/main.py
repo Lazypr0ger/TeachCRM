@@ -9,13 +9,14 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
 from app.core.db import create_db_engine, create_session_factory, database_is_ready
+from app.core.observability import configure_logging
 from app.modules.files.service import cleanup_expired_uploads
 from app.modules.files.storage import get_storage
 from app.modules.notifications.service import enqueue_payment_due_notifications, process_outbox
 from app.modules.scheduling.models import LessonRecurrenceRule
 from app.modules.scheduling.recurrence_service import RecurrenceConflictError, materialize_rule
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+configure_logging()
 logger = logging.getLogger(__name__)
 running = True
 RECURRENCE_INTERVAL_SECONDS = 300

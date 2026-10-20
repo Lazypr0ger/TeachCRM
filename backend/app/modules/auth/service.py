@@ -6,6 +6,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.core.observability import request_id_context
 from app.modules.auth.models import (
     AuditLog,
     InvitationToken,
@@ -62,7 +63,7 @@ def add_audit(
             action=action,
             entity_type=entity_type,
             entity_id=entity_id,
-            request_id=request_id,
+            request_id=request_id or request_id_context.get(),
             created_at=utc_now(),
         )
     )
