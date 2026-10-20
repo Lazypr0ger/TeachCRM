@@ -7,8 +7,8 @@ from app.core.config import Settings, get_settings
 from app.modules.auth.dependencies import DbSession, TeacherCsrfUser, TeacherUser
 from app.modules.auth.schemas import MessageResponse
 from app.modules.auth.security import token_hash
+from app.modules.site_settings.service import trials_are_enabled
 from app.modules.trials.schemas import (
-    PublicSiteResponse,
     TrialConversionResponse,
     TrialConvertRequest,
     TrialCreateRequest,
@@ -33,11 +33,6 @@ teacher_router = APIRouter(prefix="/api/v1/teacher/trial-requests", tags=["teach
 AppSettings = Annotated[Settings, Depends(get_settings)]
 
 
-@public_router.get("/site", response_model=PublicSiteResponse)
-def public_site(settings: AppSettings) -> PublicSiteResponse:
-    return PublicSiteResponse(trials_enabled=settings.trial_booking_enabled)
-
-
 @public_router.post(
     "/trial-requests",
     response_model=MessageResponse,
@@ -49,7 +44,7 @@ def create_public_trial(
     db: DbSession,
     settings: AppSettings,
 ) -> MessageResponse:
-    if not settings.trial_booking_enabled:
+    if not trials_are_enabled(db, settings):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Приём заявок выключен")
     if has_active_session(db, request.cookies.get(settings.session_cookie_name)):
         raise HTTPException(

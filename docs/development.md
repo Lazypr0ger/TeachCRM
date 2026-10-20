@@ -27,6 +27,10 @@ uv run python -m app.workers.main
 TRIAL_BOOKING_ENABLED=true docker compose -f infra/compose.dev.yaml up --build
 ```
 
+После включения общего флага преподаватель управляет публикацией формы и
+контентом главной страницы в `/teacher/settings`. Выключение любого из двух
+переключателей закрывает публичный приём заявок.
+
 Для локального S3 используется LocalStack. Compose создаёт приватный bucket
 `tutorcrm-private` скриптом `infra/localstack/init-s3.sh`. Разрешены PDF, PNG,
 JPEG, WebP и DOCX до 15 МБ; на один объект можно прикрепить до 10 файлов.

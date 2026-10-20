@@ -4,10 +4,6 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
-class PublicSiteResponse(BaseModel):
-    trials_enabled: bool
-
-
 class TrialCreateRequest(BaseModel):
     name: str = Field(min_length=3, max_length=300)
     grade: int = Field(ge=1, le=11)

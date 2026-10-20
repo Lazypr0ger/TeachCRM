@@ -33,7 +33,25 @@ export type TrialPage = {
   page_size: number;
 };
 
-export type PublicSite = { trials_enabled: boolean };
+export type PublicSite = {
+  brand_name: string;
+  tagline: string | null;
+  about_text: string | null;
+  directions: string[];
+  advantages: string[];
+  confirmed_results: string[];
+  pricing_text: string | null;
+  privacy_text: string | null;
+  trials_enabled: boolean;
+  timezone: string;
+};
+
+export type TeacherSiteSettings = PublicSite & {
+  configured_trials_enabled: boolean;
+  trial_feature_available: boolean;
+  version: number;
+  updated_at: string | null;
+};
 
 export const trialStatus: Record<TrialStatus, string> = {
   NEW: "Новая",

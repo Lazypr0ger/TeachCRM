@@ -30,7 +30,9 @@ def trial_payload(suffix: str = "") -> dict[str, object]:
 def test_public_trial_flag_honeypot_rate_limit_and_authenticated_block(
     auth_context: AuthTestContext,
 ) -> None:
-    assert auth_context.client.get("/api/v1/public/site").json() == {"trials_enabled": False}
+    public_site = auth_context.client.get("/api/v1/public/site").json()
+    assert public_site["trials_enabled"] is False
+    assert public_site["brand_name"] == "Tutor CRM"
     assert (
         auth_context.client.post("/api/v1/public/trial-requests", json=trial_payload()).status_code
         == 404
@@ -158,4 +160,3 @@ def test_teacher_trial_workflow_conflicts_conversion_and_role_scope(
         ).status_code
         == 403
     )
-

@@ -258,6 +258,10 @@ a { color: inherit; }
 .public-capabilities p { color: var(--text-muted); line-height: 1.5; }
 .public-trial { display: grid; grid-template-columns: .8fr 1.2fr; gap: 32px; margin: 72px 0; align-items: start; }
 .public-disabled { margin: 64px 0; }
+.public-content { margin: 48px 0; line-height: 1.65; }
+.public-content li { margin: 8px 0; }
+.public-footer { margin-top: 64px; border-top: 1px solid var(--border); padding: 32px 0; color: var(--text-muted); white-space: pre-wrap; }
+.site-settings-form textarea { min-height: 110px; }
 .honeypot { position: absolute !important; left: -10000px !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
 .trial-list { display: grid; gap: 16px; margin: 20px 0; }
 .trial-actions { display: grid; gap: 12px; margin-top: 18px; border-top: 1px solid var(--border); padding-top: 18px; }

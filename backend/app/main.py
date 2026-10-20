@@ -26,6 +26,8 @@ from app.modules.scheduling.reschedule_router import student_router as student_r
 from app.modules.scheduling.reschedule_router import teacher_router as teacher_reschedule_router
 from app.modules.scheduling.student_router import router as student_schedule_router
 from app.modules.scheduling.teacher_router import router as teacher_availability_router
+from app.modules.site_settings.router import public_router as public_site_router
+from app.modules.site_settings.router import teacher_router as teacher_site_router
 from app.modules.students.router import router as teacher_students_router
 from app.modules.students.student_router import router as student_profile_router
 from app.modules.trials.router import public_router as public_trials_router
@@ -68,6 +70,8 @@ app.include_router(student_schedule_router)
 app.include_router(recurrence_router)
 app.include_router(student_reschedule_router)
 app.include_router(teacher_reschedule_router)
+app.include_router(public_site_router)
+app.include_router(teacher_site_router)
 app.include_router(public_trials_router)
 app.include_router(teacher_trials_router)
 

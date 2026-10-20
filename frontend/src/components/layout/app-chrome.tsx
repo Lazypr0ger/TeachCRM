@@ -19,7 +19,7 @@ const teacherLinks = [
   ["Расписание", "/teacher/schedule"],
   ["Ученики", "/teacher/students"],
   ["Финансы", "/teacher/finances"],
-  ["Ещё", "/teacher/notifications"],
+  ["Ещё", "/teacher/settings"],
 ];
 
 export function AppChrome() {
