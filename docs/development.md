@@ -35,6 +35,26 @@ TRIAL_BOOKING_ENABLED=true docker compose -f infra/compose.dev.yaml up --build
 `tutorcrm-private` скриптом `infra/localstack/init-s3.sh`. Разрешены PDF, PNG,
 JPEG, WebP и DOCX до 15 МБ; на один объект можно прикрепить до 10 файлов.
 
+На Windows Docker Desktop должен быть запущен в режиме Linux containers. Если
+порт PostgreSQL `5432` уже занят или зарезервирован системой, выберите другой
+хостовый порт; внутри Compose приложение продолжит обращаться к PostgreSQL на
+`postgres:5432`:
+
+```powershell
+$env:POSTGRES_HOST_PORT = "5433"
+docker compose -f infra/compose.dev.yaml up --build
+```
+
+Shell-скрипты должны иметь окончания строк LF. Репозиторий закрепляет это
+правило в `.gitattributes`. Для уже существующей Windows-копии после получения
+изменений один раз восстановите скрипт из Git:
+
+```powershell
+git checkout-index --force -- infra/localstack/init-s3.sh scripts/release-check.sh
+docker compose -f infra/compose.dev.yaml down
+docker compose -f infra/compose.dev.yaml up --build
+```
+
 В локальной среде пароль преподавателя создаётся интерактивно:
 
 ```bash
