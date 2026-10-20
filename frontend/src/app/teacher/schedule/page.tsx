@@ -1,26 +1,31 @@
 import Link from "next/link";
+import { WeekCalendar } from "@/components/calendar/week-calendar";
 import { LessonCreateForm } from "@/components/teacher/lesson-create-form";
 import { TeacherLessonCard } from "@/components/teacher/teacher-lesson-card";
 import { AvailabilityManager } from "@/components/teacher/availability-manager";
 import { RecurrenceManager } from "@/components/teacher/recurrence-manager";
 import { TeacherRescheduleManager } from "@/components/teacher/reschedule-manager";
 import type { LessonList } from "@/lib/lessons";
+import { weekRange } from "@/lib/calendar";
 import type { AvailabilityException, AvailabilityRule, RecurrenceRule, RescheduleRequest } from "@/lib/scheduling";
 import { requireRole, serverGet } from "@/lib/server-auth";
 import type { StudentList } from "@/lib/students";
 
-type SearchParams = Promise<{ student_id?: string; lesson_status?: string; page?: string }>;
+type SearchParams = Promise<{ student_id?: string; lesson_status?: string; page?: string; week?: string }>;
 
 export default async function SchedulePage({ searchParams }: { searchParams: SearchParams }) {
   await requireRole("TEACHER");
   const filters = await searchParams;
+  const week = weekRange(filters.week);
   const students = await serverGet<StudentList>("/api/v1/teacher/students?page_size=100&sort=name");
   const query = new URLSearchParams();
   if (filters.student_id) query.set("student_id", filters.student_id);
   if (filters.lesson_status) query.set("lesson_status", filters.lesson_status);
   if (filters.page) query.set("page", filters.page);
-  const [lessons, rules, exceptions, recurrenceRules, rescheduleRequests] = await Promise.all([
+  const calendarQuery = new URLSearchParams({ date_from: `${week.start}T00:00:00+03:00`, date_to: `${week.end}T00:00:00+03:00`, page_size: "100" });
+  const [lessons, calendarLessons, rules, exceptions, recurrenceRules, rescheduleRequests] = await Promise.all([
     serverGet<LessonList>(`/api/v1/teacher/lessons?${query}`),
+    serverGet<LessonList>(`/api/v1/teacher/lessons?${calendarQuery}`),
     serverGet<AvailabilityRule[]>("/api/v1/teacher/availability-rules"),
     serverGet<AvailabilityException[]>("/api/v1/teacher/availability-exceptions"),
     serverGet<RecurrenceRule[]>("/api/v1/teacher/recurrence-rules"),
@@ -35,6 +40,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Sea
   return <main className="management-shell">
     <header className="management-header"><div><Link className="text-link" href="/teacher">← В кабинет</Link><h1>Расписание</h1><p>Индивидуальные уроки, время указано по Москве.</p></div></header>
     <LessonCreateForm students={students.items.filter((student) => student.status !== "SUSPENDED")} />
+    <WeekCalendar lessons={calendarLessons.items} markers={exceptions.map((item) => ({ id: item.id, starts_at: item.starts_at, ends_at: item.ends_at, label: item.kind === "BLOCKED" ? "Время заблокировано" : "Дополнительное доступное время", tone: item.kind === "BLOCKED" ? "busy" as const : "available" as const }))} week={week.start} basePath="/teacher/schedule" showStudent />
     <AvailabilityManager rules={rules} exceptions={exceptions} />
     <RecurrenceManager rules={recurrenceRules} students={students.items.filter((student) => student.status !== "SUSPENDED")} />
     <TeacherRescheduleManager requests={rescheduleRequests} />
