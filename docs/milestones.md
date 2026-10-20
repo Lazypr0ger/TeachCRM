@@ -435,3 +435,13 @@ TEACHER, помечена `private, no-store` и фиксируется в audit
 тексты и приватные файлы. Финансовые записи и audit log сохраняются со ссылкой
 на обезличенный заблокированный профиль.
 
+### Срез 7.9 — автоматизированный release gate
+
+Статус: завершён 2026-10-20.
+
+Скрипт `scripts/release-check.sh` одной командой запускает Ruff, strict mypy,
+полный pytest, проверку Alembic head, Biome, Vitest, production build Next.js,
+`git diff --check` и требует чистое рабочее дерево. Отдельный runtime smoke
+подтвердил ответы собранного frontend и backend `/health/ready`, включая
+возврат `X-Request-ID`.
+
