@@ -15,7 +15,7 @@ const themeScript = `(function(){try{var t=localStorage.getItem('tutorcrm-theme'
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="ru" data-theme="system" suppressHydrationWarning>
-      <body><Script id="theme-initializer" strategy="beforeInteractive">{themeScript}</Script><AppChrome />{children}</body>
+      <body><Script id="theme-initializer" strategy="beforeInteractive">{themeScript}</Script><AppChrome /><div id="main-content" tabIndex={-1}>{children}</div></body>
     </html>
   );
 }

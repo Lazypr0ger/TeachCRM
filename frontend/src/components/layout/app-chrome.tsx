@@ -47,7 +47,8 @@ export function AppChrome() {
       : null;
 
   return <>
-    <label className="theme-picker"><span>Тема</span><select value={theme} onChange={(event) => setTheme(event.target.value as Theme)}><option value="system">Системная</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select></label>
-    {links ? <nav className="mobile-navigation" aria-label="Основная навигация">{links.map(([label, href]) => <Link className={pathname === href ? "active" : ""} href={href} key={href}>{label}</Link>)}</nav> : null}
+    <a className="skip-link" href="#main-content">Перейти к содержимому</a>
+    <label className="theme-picker"><span>Тема</span><select aria-label="Цветовая тема" value={theme} onChange={(event) => setTheme(event.target.value as Theme)}><option value="system">Системная</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select></label>
+    {links ? <nav className="mobile-navigation" aria-label="Основная навигация">{links.map(([label, href]) => { const isDashboard = href === "/student" || href === "/teacher"; const active = pathname === href || (!isDashboard && pathname.startsWith(`${href}/`)); return <Link aria-current={active ? "page" : undefined} className={active ? "active" : ""} href={href} key={href}>{label}</Link>; })}</nav> : null}
   </>;
 }
