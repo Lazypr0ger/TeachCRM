@@ -370,6 +370,26 @@ a { color: inherit; }
 .dashboard-notifications .notification-card { border-width: 1px 0 0; border-radius: 0; background: transparent; padding: 14px 0; }
 .dashboard-notifications .notification-card h2 { font-size: 16px; }
 .dashboard-notifications .notification-card p { margin: 4px 0; }
+.modal-backdrop { position: fixed; z-index: 80; inset: 0; display: grid; place-items: center; overflow-y: auto; background: rgb(0 0 0 / 64%); padding: 24px; }
+.modal-card { width: min(560px, 100%); max-height: calc(100vh - 48px); overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); padding: 24px; box-shadow: 0 24px 80px rgb(0 0 0 / 35%); }
+.modal-card h2 { margin: 0; }
+.modal-card > p { color: var(--text-muted); }
+.students-page { width: min(1480px, 100%); }
+.students-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+.mini-stat { display: grid; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); padding: 16px; }
+.mini-stat small { color: var(--text-muted); }
+.mini-stat strong { font-size: 28px; }
+.students-filters .filters-form { grid-template-columns: minmax(190px, 2fr) repeat(4, minmax(120px, 1fr)) auto; }
+.student-table-wrap { margin: 16px 0; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
+.student-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.student-table th { position: sticky; z-index: 1; top: 0; background: var(--surface-hover); color: var(--text-muted); font-size: 12px; letter-spacing: .02em; text-align: left; text-transform: uppercase; }
+.student-table th, .student-table td { padding: 14px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.student-table tbody tr:last-child td { border-bottom: 0; }
+.student-table tbody tr:hover { background: color-mix(in srgb, var(--surface-hover) 65%, transparent); }
+.student-identity { display: flex; min-width: 210px; align-items: center; gap: 12px; }
+.student-identity > span:last-child { display: grid; gap: 3px; }
+.student-identity small, .muted-value { color: var(--text-muted); }
+.debt-value { color: var(--warning); font-variant-numeric: tabular-nums; font-weight: 700; }
 .calendar-section { margin: 20px 0; overflow: hidden; }
 .calendar-heading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .calendar-heading h2 { margin: 0; }
@@ -407,6 +427,20 @@ a { color: inherit; }
   .dashboard-timeline li { grid-template-columns: 92px 38px minmax(0, 1fr); gap: 8px; padding: 12px 0; }
   .dashboard-timeline .status, .dashboard-timeline .secondary-button { grid-column: 3; width: fit-content; }
   .dashboard-panel { padding: 16px; }
+  .students-summary { grid-template-columns: 1fr 1fr; }
+  .students-filters .filters-form { grid-template-columns: 1fr; }
+  .modal-backdrop { align-items: end; padding: 0; }
+  .modal-card { width: 100%; max-height: 92vh; border-radius: 16px 16px 0 0; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
+  .student-table-wrap { overflow: visible; border: 0; background: transparent; }
+  .student-table, .student-table tbody, .student-table tr, .student-table td { display: block; }
+  .student-table thead { display: none; }
+  .student-table tbody { display: grid; gap: 12px; }
+  .student-table tr { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); padding: 14px; }
+  .student-table td { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 0; padding: 8px 0; text-align: right; }
+  .student-table td[data-label]::before { color: var(--text-muted); content: attr(data-label); font-size: 12px; text-align: left; }
+  .student-table td:first-child { justify-content: flex-start; text-align: left; }
+  .student-table td:first-child::before { display: none; }
+  .student-table td:last-child .secondary-button { width: 100%; }
   .dashboard-shell { grid-template-columns: minmax(0, 440px); padding: 24px 16px; }
   .summary-grid { grid-template-columns: 1fr; }
   .management-shell { padding: 24px 16px; }

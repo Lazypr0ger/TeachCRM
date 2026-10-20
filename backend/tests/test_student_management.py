@@ -3,6 +3,8 @@ from uuid import UUID
 from app.modules.auth.models import AuditLog
 from tests.conftest import TEACHER_PASSWORD, AuthTestContext
 from tests.test_auth_security import STUDENT_PASSWORD, activate, create_student, login
+from tests.test_lessons import create_lesson
+from tests.test_payment_claims import prepare_invoice
 
 
 def test_teacher_lists_searches_and_filters_students(auth_context: AuthTestContext) -> None:
@@ -36,6 +38,38 @@ def test_teacher_lists_searches_and_filters_students(auth_context: AuthTestConte
         first["student_id"],
         second.json()["student_id"],
     }
+
+
+def test_student_list_includes_next_lesson_debt_and_status_totals(
+    auth_context: AuthTestContext,
+) -> None:
+    teacher = login(auth_context, "teacher", TEACHER_PASSWORD)
+    student, _invoice = prepare_invoice(auth_context, teacher, "list-operational")
+    upcoming = create_lesson(
+        auth_context,
+        teacher["csrf_token"],
+        student["student_id"],
+        starts_at="2045-04-10T17:00:00+03:00",
+        ends_at="2045-04-10T18:00:00+03:00",
+    )
+    assert upcoming.status_code == 201
+
+    listed = auth_context.client.get(
+        "/api/v1/teacher/students?search=student-list-operational&has_debt=true"
+    )
+    assert listed.status_code == 200
+    assert listed.json()["total"] == 1
+    assert listed.json()["items"][0]["next_lesson_at"] == upcoming.json()["starts_at"]
+    assert listed.json()["items"][0]["outstanding_total"] == "1200.00"
+    assert listed.json()["status_counts"] == {
+        "ACTIVE": 1,
+        "INVITED": 0,
+        "SUSPENDED": 0,
+        "TOTAL": 1,
+    }
+    assert auth_context.client.get(
+        "/api/v1/teacher/students?search=student-list-operational&has_debt=false"
+    ).json()["total"] == 0
 
 
 def test_teacher_reads_and_updates_student_card(auth_context: AuthTestContext) -> None:

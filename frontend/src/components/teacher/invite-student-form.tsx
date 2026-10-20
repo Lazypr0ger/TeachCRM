@@ -15,6 +15,7 @@ export function InviteStudentForm() {
   const [result, setResult] = useState<Invitation | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [open, setOpen] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,8 +42,10 @@ export function InviteStudentForm() {
   }
 
   return (
-    <section className="auth-card">
-      <h2>Пригласить ученика</h2>
+    <><button className="primary-button" type="button" onClick={() => setOpen(true)}>Добавить ученика</button>
+    {open ? <div className="modal-backdrop">
+    <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="invite-title">
+      <div className="section-heading"><h2 id="invite-title">Пригласить ученика</h2><button className="secondary-button compact-button" type="button" onClick={() => setOpen(false)} aria-label="Закрыть">Закрыть</button></div>
       <p>Ссылка показывается один раз. Передайте её ученику вручную.</p>
       <form className="auth-form" onSubmit={submit}>
         <label>Фамилия<input name="last_name" required maxLength={100} /></label>
@@ -60,6 +63,6 @@ export function InviteStudentForm() {
         <a className="text-link" href={result.activation_url}>{result.activation_url}</a>
         <span>Действует до {new Date(result.expires_at).toLocaleString("ru-RU")}</span>
       </div> : null}
-    </section>
+    </section></div> : null}</>
   );
 }

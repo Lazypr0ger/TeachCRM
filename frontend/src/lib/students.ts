@@ -7,6 +7,8 @@ export type Student = {
   last_name: string;
   patronymic: string | null;
   grade: number | null;
+  next_lesson_at: string | null;
+  outstanding_total: string;
   created_at: string;
   activated_at?: string | null;
   last_login_at?: string | null;
@@ -18,6 +20,7 @@ export type StudentList = {
   total: number;
   page: number;
   page_size: number;
+  status_counts: Record<"TOTAL" | Student["status"], number>;
 };
 
 export const studentStatus: Record<Student["status"], string> = {

@@ -1,3 +1,5 @@
+from datetime import datetime
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -16,11 +18,11 @@ from app.modules.auth.models import (
     UserStatus,
 )
 from app.modules.auth.service import add_audit, utc_now
-from app.modules.billing.models import Invoice, Payment, PaymentClaim
+from app.modules.billing.models import Invoice, Payment, PaymentAllocation, PaymentClaim
 from app.modules.files.models import FileLink, FileUploadTicket, StoredFile
 from app.modules.files.storage import ObjectStorage
 from app.modules.homework.models import HomeworkSubmission
-from app.modules.lessons.models import Lesson
+from app.modules.lessons.models import Lesson, LessonStatus
 from app.modules.notifications.models import Notification
 from app.modules.scheduling.models import RescheduleRequest, StudentAvailability
 from app.modules.students.schemas import (
@@ -187,7 +189,12 @@ def anonymize_student(
     db.commit()
 
 
-def to_summary(profile: StudentProfile, user: User) -> StudentSummary:
+def to_summary(
+    profile: StudentProfile,
+    user: User,
+    next_lesson_at: datetime | None = None,
+    outstanding_total: Decimal = Decimal("0"),
+) -> StudentSummary:
     return StudentSummary(
         id=profile.id,
         user_id=user.id,
@@ -197,6 +204,8 @@ def to_summary(profile: StudentProfile, user: User) -> StudentSummary:
         last_name=profile.last_name,
         patronymic=profile.patronymic,
         grade=profile.grade,
+        next_lesson_at=next_lesson_at,
+        outstanding_total=outstanding_total,
         created_at=profile.created_at,
     )
 
@@ -207,10 +216,11 @@ def list_students(
     search: str | None,
     grade: int | None,
     student_status: str | None,
+    has_debt: bool | None,
     sort: str,
     page: int,
     page_size: int,
-) -> tuple[list[StudentSummary], int]:
+) -> tuple[list[StudentSummary], int, dict[str, int]]:
     filters = [User.role == UserRole.STUDENT]
     if search and (term := search.strip()):
         pattern = f"%{term}%"
@@ -227,8 +237,50 @@ def list_students(
     if student_status is not None:
         filters.append(User.status == student_status)
 
+    allocated = (
+        select(
+            PaymentAllocation.invoice_id,
+            func.sum(PaymentAllocation.amount).label("allocated"),
+        )
+        .group_by(PaymentAllocation.invoice_id)
+        .subquery()
+    )
+    balances = (
+        select(
+            Invoice.student_id,
+            func.sum(Invoice.total - func.coalesce(allocated.c.allocated, 0)).label(
+                "outstanding_total"
+            ),
+        )
+        .outerjoin(allocated, allocated.c.invoice_id == Invoice.id)
+        .group_by(Invoice.student_id)
+        .subquery()
+    )
+    next_lessons = (
+        select(
+            Lesson.student_id,
+            func.min(Lesson.starts_at).label("next_lesson_at"),
+        )
+        .where(Lesson.status == LessonStatus.SCHEDULED, Lesson.ends_at > utc_now())
+        .group_by(Lesson.student_id)
+        .subquery()
+    )
+    if has_debt is True:
+        filters.append(func.coalesce(balances.c.outstanding_total, 0) > 0)
+    elif has_debt is False:
+        filters.append(func.coalesce(balances.c.outstanding_total, 0) <= 0)
+
     base = (
-        select(StudentProfile, User).join(User, User.id == StudentProfile.user_id).where(*filters)
+        select(
+            StudentProfile,
+            User,
+            next_lessons.c.next_lesson_at,
+            func.coalesce(balances.c.outstanding_total, 0),
+        )
+        .join(User, User.id == StudentProfile.user_id)
+        .outerjoin(next_lessons, next_lessons.c.student_id == StudentProfile.id)
+        .outerjoin(balances, balances.c.student_id == StudentProfile.id)
+        .where(*filters)
     )
     total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
     order = {
@@ -237,7 +289,15 @@ def list_students(
         "name": (StudentProfile.last_name, StudentProfile.first_name, StudentProfile.id),
     }[sort]
     rows = db.execute(base.order_by(*order).offset((page - 1) * page_size).limit(page_size)).all()
-    return [to_summary(profile, user) for profile, user in rows], total
+    counts = {status: 0 for status in (UserStatus.ACTIVE, UserStatus.INVITED, UserStatus.SUSPENDED)}
+    for status, count in db.execute(
+        select(User.status, func.count())
+        .where(User.role == UserRole.STUDENT)
+        .group_by(User.status)
+    ):
+        counts[status] = count
+    counts["TOTAL"] = sum(counts.values())
+    return [to_summary(row[0], row[1], row[2], row[3]) for row in rows], total, counts
 
 
 def get_student(db: Session, student_id: UUID) -> tuple[StudentProfile, User]:

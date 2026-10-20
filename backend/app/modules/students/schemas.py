@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -13,6 +14,8 @@ class StudentSummary(BaseModel):
     last_name: str
     patronymic: str | None
     grade: int | None
+    next_lesson_at: datetime | None
+    outstanding_total: Decimal
     created_at: datetime
 
 
@@ -21,6 +24,7 @@ class StudentListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+    status_counts: dict[str, int]
 
 
 class StudentUpdateRequest(BaseModel):

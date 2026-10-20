@@ -36,20 +36,28 @@ def students(
     search: Annotated[str | None, Query(max_length=100)] = None,
     grade: Annotated[int | None, Query(ge=1, le=11)] = None,
     student_status: Literal["INVITED", "ACTIVE", "SUSPENDED"] | None = None,
+    has_debt: bool | None = None,
     sort: Literal["name", "created_desc", "created_asc"] = "name",
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> StudentListResponse:
-    items, total = list_students(
+    items, total, status_counts = list_students(
         db,
         search=search,
         grade=grade,
         student_status=student_status,
+        has_debt=has_debt,
         sort=sort,
         page=page,
         page_size=page_size,
     )
-    return StudentListResponse(items=items, total=total, page=page, page_size=page_size)
+    return StudentListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        status_counts=status_counts,
+    )
 
 
 @router.get("/{student_id}", response_model=StudentDetail)
