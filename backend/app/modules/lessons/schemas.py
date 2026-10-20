@@ -121,3 +121,8 @@ class StudentDashboardResponse(BaseModel):
 
 class TeacherDashboardResponse(BaseModel):
     today_lessons: list[LessonResponse]
+    next_lesson: LessonResponse | None
+    lessons_today: int
+    pending_payment_claims: int
+    homework_submissions_today: int
+    pending_reschedule_requests: int

@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -192,8 +192,8 @@ def test_teacher_dashboard_lists_today_lessons(auth_context: AuthTestContext) ->
     teacher_session = login(auth_context, "teacher", TEACHER_PASSWORD)
     student = create_student(auth_context, teacher_session["csrf_token"], "teacher-dashboard")
     today = datetime.now(ZoneInfo("Europe/Moscow")).date()
-    starts_at = datetime.combine(today, time(12), ZoneInfo("Europe/Moscow"))
-    ends_at = datetime.combine(today, time(13), ZoneInfo("Europe/Moscow"))
+    starts_at = datetime.combine(today, time(0, 1), ZoneInfo("Europe/Moscow"))
+    ends_at = datetime.combine(today, time(0, 31), ZoneInfo("Europe/Moscow"))
     created = create_lesson(
         auth_context,
         teacher_session["csrf_token"],
@@ -203,8 +203,23 @@ def test_teacher_dashboard_lists_today_lessons(auth_context: AuthTestContext) ->
         title="Сегодняшний урок",
     )
     assert created.status_code == 201
+    tomorrow = today + timedelta(days=1)
+    next_created = create_lesson(
+        auth_context,
+        teacher_session["csrf_token"],
+        student["student_id"],
+        starts_at=datetime.combine(tomorrow, time(12), ZoneInfo("Europe/Moscow")).isoformat(),
+        ends_at=datetime.combine(tomorrow, time(13), ZoneInfo("Europe/Moscow")).isoformat(),
+        title="Следующий урок",
+    )
+    assert next_created.status_code == 201
     dashboard = auth_context.client.get("/api/v1/teacher/dashboard")
     assert dashboard.status_code == 200
     assert [lesson["id"] for lesson in dashboard.json()["today_lessons"]] == [
         created.json()["id"]
     ]
+    assert dashboard.json()["next_lesson"]["id"] == next_created.json()["id"]
+    assert dashboard.json()["lessons_today"] == 1
+    assert dashboard.json()["pending_payment_claims"] == 0
+    assert dashboard.json()["homework_submissions_today"] == 0
+    assert dashboard.json()["pending_reschedule_requests"] == 0
