@@ -314,6 +314,10 @@ def complete_upload(
         created_at=utc_now(),
     )
     db.add(item)
+    # FileLink references StoredFile, but these models deliberately do not expose
+    # ORM relationships. Flush the parent explicitly so PostgreSQL never receives
+    # the link before the file row.
+    db.flush()
     db.add(FileLink(file_id=file_id, entity_type=ticket.target_type, entity_id=ticket.target_id))
     ticket.status = UploadStatus.COMPLETED
     ticket.completed_at = utc_now()

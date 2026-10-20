@@ -37,8 +37,9 @@ def upload_file(
     purpose: str,
     assignment_id: str,
     filename: str = "answer.pdf",
+    content: bytes = b"%PDF-1.7\nprivate-homework",
+    mime_type: str = "application/pdf",
 ) -> dict[str, object]:
-    content = b"%PDF-1.7\nprivate-homework"
     initialized = context.client.post(
         "/api/v1/files/upload-init",
         headers={"X-CSRF-Token": csrf},
@@ -55,7 +56,7 @@ def upload_file(
     uploaded = context.client.post(
         ticket["upload_url"],
         headers={"X-CSRF-Token": csrf},
-        files={"file": (filename, content, "application/pdf")},
+        files={"file": (filename, content, mime_type)},
     )
     assert uploaded.status_code == 204, uploaded.text
     completed = context.client.post(
@@ -138,6 +139,7 @@ def test_assignment_states_update_files_and_role_boundaries(
         auth_context.client.get(f"/api/v1/student/lessons/{lesson['id']}/homework").status_code
         == 404
     )
+    assert auth_context.client.get(material["download_url"]).status_code == 404
 
 
 def test_final_submission_is_atomic_idempotent_and_immutable(
@@ -173,6 +175,16 @@ def test_final_submission_is_atomic_idempotent_and_immutable(
         purpose="HOMEWORK",
         assignment_id=first["id"],
     )
+    photo_content = b"\x89PNG\r\n\x1a\nprivate-homework-photo"
+    photo = upload_file(
+        auth_context,
+        student_session["csrf_token"],
+        purpose="HOMEWORK",
+        assignment_id=first["id"],
+        filename="solution.png",
+        content=photo_content,
+        mime_type="image/png",
+    )
     login(auth_context, "teacher", TEACHER_PASSWORD)
     assert auth_context.client.get(draft["download_url"]).status_code == 404
     student_session = login(auth_context, student["login"], STUDENT_PASSWORD)
@@ -197,7 +209,7 @@ def test_final_submission_is_atomic_idempotent_and_immutable(
 
     payload = {
         "answer_text": "Готово",
-        "file_ids": [draft["id"]],
+        "file_ids": [draft["id"], photo["id"]],
         "idempotency_key": "submission-request-001",
     }
     submitted = auth_context.client.post(
@@ -206,7 +218,7 @@ def test_final_submission_is_atomic_idempotent_and_immutable(
         json=payload,
     )
     assert submitted.status_code == 201, submitted.text
-    assert submitted.json()["files"][0]["id"] == draft["id"]
+    assert [item["id"] for item in submitted.json()["files"]] == [draft["id"], photo["id"]]
     retry = auth_context.client.post(
         f"/api/v1/student/assignments/{first['id']}/submission",
         headers={"X-CSRF-Token": student_session["csrf_token"]},
@@ -234,3 +246,5 @@ def test_final_submission_is_atomic_idempotent_and_immutable(
     assert result.status_code == 200
     assert result.json()["state"] == "ACCEPTED"
     assert result.json()["submission"]["answer_text"] == "Готово"
+    assert auth_context.client.get(draft["download_url"]).content == b"%PDF-1.7\nprivate-homework"
+    assert auth_context.client.get(photo["download_url"]).content == photo_content

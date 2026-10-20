@@ -7,13 +7,23 @@ export type AuthUser = {
 
 type ApiError = { detail?: string };
 
+async function responseBody<T>(response: Response): Promise<T & ApiError> {
+  const text = await response.text();
+  if (!text) return {} as T & ApiError;
+  try {
+    return JSON.parse(text) as T & ApiError;
+  } catch {
+    return { detail: response.ok ? undefined : "Сервер вернул некорректный ответ" } as T & ApiError;
+  }
+}
+
 export async function postJson<T>(url: string, payload: unknown): Promise<T> {
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const result = (await response.json()) as T & ApiError;
+  const result = await responseBody<T>(response);
   if (!response.ok) {
     throw new Error(result.detail ?? "Не удалось выполнить запрос");
   }
@@ -34,7 +44,7 @@ export async function uploadAuthenticated<T>(url: string, file: File): Promise<T
     body,
   });
   if (response.status === 204) return undefined as T;
-  const result = (await response.json()) as T & ApiError;
+  const result = await responseBody<T>(response);
   if (!response.ok) throw new Error(result.detail ?? "Не удалось загрузить файл");
   return result;
 }
@@ -54,7 +64,7 @@ export async function authenticatedJson<T>(
     body: payload === undefined ? undefined : JSON.stringify(payload),
   });
   if (response.status === 204) return undefined as T;
-  const result = (await response.json()) as T & ApiError;
+  const result = await responseBody<T>(response);
   if (!response.ok) throw new Error(result.detail ?? "Не удалось выполнить запрос");
   return result;
 }
