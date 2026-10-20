@@ -1,0 +1,72 @@
+# Эксплуатация локальной Tutor CRM
+
+## Резервная копия
+
+PostgreSQL, S3 и backend/worker должны быть доступны через Compose. Команда на
+короткое время останавливает backend и worker, снимает согласованные копии базы
+и bucket, затем запускает остановленные сервисы обратно. Незавершённый файл
+имеет суффикс `.partial` и всегда удаляется при ошибке.
+
+```bash
+cd backend
+uv run python -m app.ops backup --directory ../backups --keep-days 14
+```
+
+Архив создаётся с правами `0600`. Manifest содержит SHA-256 базы и каждого
+объекта. Каталог `backups/` исключён из Git. Для ежедневного запуска можно
+использовать cron владельца приложения:
+
+```cron
+15 3 * * * cd /absolute/path/TeachCRM/backend && /absolute/path/uv run python -m app.ops backup --directory ../backups --keep-days 14 >> ../backups/backup.log 2>&1
+```
+
+Архивы нужно дополнительно копировать на отдельный зашифрованный носитель.
+Хранение на том же диске не защищает от отказа этого диска.
+
+## Проверка и rehearsal
+
+Проверка контрольных сумм не меняет рабочие данные:
+
+```bash
+uv run python -m app.ops verify ../backups/tutorcrm-YYYYMMDDTHHMMSSZ.tar.gz
+```
+
+Rehearsal создаёт временную базу и временный S3 bucket, восстанавливает архив,
+проверяет версию Alembic и содержимое объектов, затем удаляет временные данные:
+
+```bash
+uv run python -m app.ops rehearse ../backups/tutorcrm-YYYYMMDDTHHMMSSZ.tar.gz
+```
+
+Успешный rehearsal подтверждает работоспособность конкретного архива. Он не
+доказывает RPO/RTO для другого оборудования или объёма данных.
+
+## Восстановление рабочей установки
+
+Команда разрушительно заменяет рабочую базу и bucket. До изменения она
+автоматически создаёт страховочный архив, проверяет выбранный архив и
+останавливает web/backend/worker. Запуск требует точной строки подтверждения:
+
+```bash
+uv run python -m app.ops restore ../backups/tutorcrm-YYYYMMDDTHHMMSSZ.tar.gz \
+  --confirm RESTORE-tutorcrm --safety-directory ../backups
+```
+
+Если восстановление прервётся, команда напечатает путь страховочного архива.
+Сначала устраните причину, затем восстановите этот архив той же командой.
+
+## Обновление и откат кода
+
+Перед обновлением создайте backup и выполните rehearsal. Затем обновите `prod`,
+пересоберите сервисы и примените миграции:
+
+```bash
+git checkout prod
+git pull --ff-only origin prod
+docker compose -f infra/compose.dev.yaml up --build -d
+curl --fail http://localhost:8000/health/ready
+```
+
+Для отката верните предыдущий тег приложения и восстановите архив, созданный
+перед обновлением. Одного `alembic downgrade` недостаточно, потому что код,
+схема PostgreSQL и объекты должны соответствовать одной контрольной точке.
